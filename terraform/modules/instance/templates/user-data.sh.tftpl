@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+#
+# llmrun instance bootstrap.
+# Rendered by Terraform's templatefile(): template variables are interpolated,
+# while shell variables are escaped (doubled dollar-brace) so Terraform leaves
+# them intact for bash to expand at runtime.
+#
+set -euxo pipefail
+
+REGION="${region}"
+HF_REPO="${hf_repo}"
+ENGINE="${engine}"
+MODE="${mode}"
+REMOTE_PORT="${remote_port}"
+IDLE_SECONDS="${idle_timeout_seconds}"
+CONTEXT_LENGTH="${context_length}"
+QUANTIZATION="${quantization}"
+HF_TOKEN="${hf_token}"
+
+mkdir -p /opt/llmrun /var/lib/llmrun
+
+# --- Ensure the SSM agent is running (needed for all llmrun access) ------------
+if ! systemctl is-active --quiet snap.amazon-ssm-agent.amazon-ssm-agent 2>/dev/null \
+  && ! systemctl is-active --quiet amazon-ssm-agent 2>/dev/null; then
+  snap start amazon-ssm-agent 2>/dev/null \
+    || (snap install amazon-ssm-agent --classic && snap start amazon-ssm-agent) \
+    || true
+fi
+
+# --- Ensure Docker is present (DLAMI has it; stock Ubuntu for CPU mode does not)
+if ! command -v docker >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y docker.io
+  systemctl enable --now docker
+fi
+
+# --- Model server systemd unit -----------------------------------------------
+if [ "$${ENGINE}" = "vllm" ]; then
+  EXTRA_ARGS=""
+  if [ "$${CONTEXT_LENGTH}" != "0" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --max-model-len $${CONTEXT_LENGTH}"; fi
+  if [ -n "$${QUANTIZATION}" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --quantization $${QUANTIZATION}"; fi
+
+  # Shard across all GPUs on the instance (tensor parallelism), else vLLM uses
+  # only one GPU and large models CUDA-OOM on multi-GPU instances.
+  GPU_COUNT=$(nvidia-smi -L 2>/dev/null | wc -l)
+  if [ "$${GPU_COUNT}" -gt 1 ]; then EXTRA_ARGS="$${EXTRA_ARGS} --tensor-parallel-size $${GPU_COUNT}"; fi
+
+  cat >/etc/systemd/system/llmrun-server.service <<UNIT
+[Unit]
+Description=llmrun model server (vLLM)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker rm -f llmrun-server
+ExecStart=/usr/bin/docker run --rm --name llmrun-server --gpus all \
+  -p $${REMOTE_PORT}:8000 \
+  -e HUGGING_FACE_HUB_TOKEN=$${HF_TOKEN} \
+  -v /opt/llmrun/hf-cache:/root/.cache/huggingface \
+  vllm/vllm-openai:latest \
+  --model $${HF_REPO} --host 0.0.0.0 --port 8000 $${EXTRA_ARGS}
+ExecStop=/usr/bin/docker stop llmrun-server
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+else
+  # CPU fallback via Ollama (experimental; works best with GGUF repos).
+  cat >/etc/systemd/system/llmrun-server.service <<UNIT
+[Unit]
+Description=llmrun model server (Ollama, CPU)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker rm -f llmrun-server
+ExecStart=/usr/bin/docker run --rm --name llmrun-server \
+  -p $${REMOTE_PORT}:11434 \
+  -v /opt/llmrun/ollama:/root/.ollama \
+  ollama/ollama:latest
+ExecStartPost=/bin/sh -c 'sleep 10; docker exec llmrun-server ollama pull hf.co/$${HF_REPO} || true'
+ExecStop=/usr/bin/docker stop llmrun-server
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+fi
+
+# --- Idle monitor: stop the instance after inactivity -------------------------
+# Uses vLLM's /metrics when available, otherwise falls back to counting active
+# connections. Stops the instance via `poweroff` (the instance's shutdown
+# behavior is "stop", so the disk + model cache are preserved).
+cat >/opt/llmrun/idle-monitor.sh <<'MONITOR'
+#!/usr/bin/env bash
+set -uo pipefail
+IDLE_SECONDS="__IDLE_SECONDS__"
+PORT="__REMOTE_PORT__"
+STATE=/var/lib/llmrun/last_active
+PREV=/var/lib/llmrun/prev_total
+now=$(date +%s)
+[ -f "$STATE" ] || echo "$now" > "$STATE"
+
+active=false
+metrics=$(curl -s --max-time 3 "http://localhost:$PORT/metrics" || true)
+if [ -n "$metrics" ]; then
+  running=$(echo "$metrics" | awk '/^vllm:num_requests_running/ {if ($2+0 > 0) f=1} END{print f+0}')
+  total=$(echo "$metrics" | awk '/^vllm:request_success_total/ {sum+=$2} END{printf "%.0f", sum+0}')
+  prev=$(cat "$PREV" 2>/dev/null || echo "-1")
+  echo "$total" > "$PREV"
+  if [ "$running" = "1" ] || [ "$total" != "$prev" ]; then active=true; fi
+else
+  conns=$(ss -Ht state established "( sport = :$PORT )" 2>/dev/null | wc -l)
+  if [ "$conns" -gt 0 ]; then active=true; fi
+fi
+
+if [ "$active" = "true" ]; then
+  echo "$now" > "$STATE"
+  exit 0
+fi
+
+last=$(cat "$STATE")
+if [ $(( now - last )) -ge "$IDLE_SECONDS" ]; then
+  logger -t llmrun "idle for >= $IDLE_SECONDS s; stopping instance"
+  /sbin/poweroff
+fi
+MONITOR
+
+sed -i "s/__IDLE_SECONDS__/$${IDLE_SECONDS}/; s/__REMOTE_PORT__/$${REMOTE_PORT}/" /opt/llmrun/idle-monitor.sh
+chmod +x /opt/llmrun/idle-monitor.sh
+
+cat >/etc/systemd/system/llmrun-idle.service <<UNIT
+[Unit]
+Description=llmrun idle monitor
+
+[Service]
+Type=oneshot
+ExecStart=/opt/llmrun/idle-monitor.sh
+UNIT
+
+cat >/etc/systemd/system/llmrun-idle.timer <<UNIT
+[Unit]
+Description=Run the llmrun idle monitor periodically
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=60s
+
+[Install]
+WantedBy=timers.target
+UNIT
+
+# --- Start everything ---------------------------------------------------------
+systemctl daemon-reload
+systemctl enable --now llmrun-server.service
+systemctl enable --now llmrun-idle.timer

@@ -1,0 +1,65 @@
+{
+    "name": "llmrun",
+    "version": "0.1.0",
+    "description": "Run open-source LLMs on AWS EC2 from a local CLI — pick a model, spin up a right-sized GPU instance, and get a local OpenAI-compatible endpoint over AWS SSM.",
+    "keywords": [
+        "llm",
+        "aws",
+        "ec2",
+        "vllm",
+        "terraform",
+        "openai",
+        "cli",
+        "huggingface",
+        "gpu"
+    ],
+    "license": "Apache-2.0",
+    "author": "Tomasz Czechowski <tomasz@czechowski.pl>",
+    "type": "module",
+    "bin": {
+        "llmrun": "dist/cli.js"
+    },
+    "files": [
+        "dist",
+        "terraform",
+        "templates",
+        "README.md"
+    ],
+    "engines": {
+        "node": ">=20"
+    },
+    "packageManager": "pnpm@9.12.0",
+    "scripts": {
+        "dev": "tsx src/cli.ts",
+        "build": "tsc -p tsconfig.json && node -e \"require('fs').chmodSync('dist/cli.js', 0o755)\"",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "lint": "eslint .",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "prepublishOnly": "pnpm run build"
+    },
+    "dependencies": {
+        "@aws-sdk/client-ec2": "^3.657.0",
+        "@aws-sdk/client-pricing": "^3.657.0",
+        "@aws-sdk/client-service-quotas": "^3.657.0",
+        "@aws-sdk/client-ssm": "^3.657.0",
+        "@aws-sdk/credential-providers": "^3.657.0",
+        "@inquirer/prompts": "^7.0.0",
+        "commander": "^12.1.0",
+        "execa": "^9.4.0",
+        "ora": "^8.1.0",
+        "picocolors": "^1.1.0",
+        "yaml": "^2.5.1",
+        "zod": "^3.23.8"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.39.5",
+        "@types/node": "^22.7.0",
+        "@typescript-eslint/eslint-plugin": "^8.64.0",
+        "@typescript-eslint/parser": "^8.64.0",
+        "eslint": "^9.39.5",
+        "prettier": "^3.3.3",
+        "tsx": "^4.19.0",
+        "typescript": "^5.6.0"
+    }
+}

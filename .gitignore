@@ -1,0 +1,35 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+
+# logs
+*.log
+npm-debug.log*
+
+# terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform/tfvars/example.tfvars.json
+crash.log
+
+# local llmrun state (only relevant if a user points state here)
+.llmrun/
+
+# os / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# secrets
+.env
+.env.*
+!.env.example
+.npmrc
+llmrun.yaml
