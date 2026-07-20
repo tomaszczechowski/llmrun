@@ -34,108 +34,203 @@ function globals(cmd: Command): GlobalFlags {
     return { profile: opts.profile, region: opts.region };
 }
 
-program
-    .command("init")
-    .description("Scaffold an editable llmrun.yaml in the current folder")
-    .option("-f, --force", "overwrite an existing llmrun.yaml")
-    .action(async (opts, cmd) => {
-        void globals(cmd);
-        await initCommand({ force: opts.force });
-    });
+/** Tag a subcommand with a help group label (used by the custom formatter below). */
+function inGroup(cmd: Command, name: string): Command {
+    (cmd as any)._helpGroup = name;
 
-program
-    .command("doctor")
-    .description("Check prerequisites (terraform, aws, SSM plugin, credentials, region)")
-    .action(async (_opts, cmd) => {
-        await doctorCommand(globals(cmd));
-    });
+    return cmd;
+}
 
-program
-    .command("models")
-    .alias("catalog")
-    .description("List models from the merged catalog with instance type and cost")
-    .action(async (_opts, cmd) => {
-        await modelsCommand(globals(cmd));
-    });
+program.configureHelp({
+    formatHelp(cmd, helper) {
+        const pad = helper.padWidth(cmd, helper);
+        const indent = "  ";
+        const out: string[] = [];
 
-program
-    .command("up")
-    .description("Pick a model, preview cost, provision, and connect a local endpoint")
-    .option("--name <instance>", "name for this deployment (defaults to the model alias)")
-    .option("--port <port>", "local port to forward to (defaults to catalog base_port)", (v) => parseInt(v, 10))
-    .option("-y, --yes", "skip the cost confirmation prompt")
-    .action(async (opts, cmd) => {
-        await upCommand(globals(cmd), { name: opts.name, port: opts.port, yes: opts.yes });
-    });
+        out.push(`Usage: ${helper.commandUsage(cmd)}\n`);
 
-program
-    .command("stop [name]")
-    .description("Stop a deployment's instance (keeps disk + model cache)")
-    .option("-w, --wait", "wait until the instance is fully stopped")
-    .action(async (name, opts, cmd) => {
-        await stopCommand(globals(cmd), name, { wait: opts.wait });
-    });
+        const desc = helper.commandDescription(cmd);
 
-program
-    .command("start [name]")
-    .description("Restart a stopped deployment and re-forward its endpoint")
-    .action(async (name, _opts, cmd) => {
-        await startCommand(globals(cmd), name);
-    });
+        if (desc) out.push(`${desc}\n`);
 
-program
-    .command("down [name]")
-    .description("Destroy a deployment (terraform destroy)")
-    .option("-y, --yes", "skip the confirmation prompt")
-    .action(async (name, opts, cmd) => {
-        await downCommand(globals(cmd), name, { yes: opts.yes });
-    });
+        const cmds = helper.visibleCommands(cmd);
+        const groups = new Map<string, Command[]>();
 
-program
-    .command("ls")
-    .aliases(["status", "list"])
-    .description("List deployments with state, local URL, and connection status")
-    .action(async (_opts, cmd) => {
-        await statusCommand(globals(cmd));
-    });
+        for (const c of cmds) {
+            const g: string = (c as any)._helpGroup ?? "Commands";
 
-program
-    .command("connect [name]")
-    .description("(Re)establish SSM port-forward(s) to local port(s)")
-    .option("-a, --all", "connect every running deployment")
-    .action(async (name, opts, cmd) => {
-        await connectCommand(globals(cmd), name, { all: opts.all });
-    });
+            if (!groups.has(g)) groups.set(g, []);
+            groups.get(g)!.push(c);
+        }
 
-program
-    .command("disconnect [name]")
-    .description("Tear down local port-forward(s) without stopping the instance")
-    .option("-a, --all", "disconnect every deployment")
-    .action(async (name, opts, cmd) => {
-        await disconnectCommand(globals(cmd), name, { all: opts.all });
-    });
+        for (const groupName of ["Basic", "Advanced"]) {
+            const list = groups.get(groupName);
 
-program
-    .command("ssh [name]")
-    .description("Open an SSM shell on a deployment's instance")
-    .action(async (name, _opts, cmd) => {
-        await sshCommand(globals(cmd), name);
-    });
+            if (!list?.length) continue;
+            out.push(`${groupName} Commands:`);
 
-program
-    .command("logs [name]")
-    .description("Tail the model server's logs over SSM")
-    .action(async (name, _opts, cmd) => {
-        await logsCommand(globals(cmd), name);
-    });
+            for (const c of list) {
+                out.push(`${indent}${helper.subcommandTerm(c).padEnd(pad)}  ${helper.subcommandDescription(c)}`);
+            }
+            out.push("");
+        }
 
-program
-    .command("config")
-    .description("Show or edit global config (~/.llmrun/config.json)")
-    .option("--set <key=value...>", "set a config value (profile, region, base_port, idle_timeout)")
-    .action(async (opts, cmd) => {
-        await configCommand(globals(cmd), { set: opts.set });
-    });
+        const opts = helper.visibleOptions(cmd);
+
+        if (opts.length) {
+            out.push("Options:");
+
+            for (const o of opts) {
+                out.push(`${indent}${helper.optionTerm(o).padEnd(pad)}  ${helper.optionDescription(o)}`);
+            }
+            out.push("");
+        }
+
+        return out.join("\n");
+    },
+});
+
+inGroup(
+    program
+        .command("init")
+        .description("Scaffold an editable llmrun.yaml in the current folder")
+        .option("-f, --force", "overwrite an existing llmrun.yaml")
+        .action(async (opts, cmd) => {
+            void globals(cmd);
+            await initCommand({ force: opts.force });
+        }),
+    "Basic"
+);
+
+inGroup(
+    program
+        .command("models")
+        .alias("catalog")
+        .description("List models from the merged catalog with instance type and cost")
+        .action(async (_opts, cmd) => {
+            await modelsCommand(globals(cmd));
+        }),
+    "Basic"
+);
+
+inGroup(
+    program
+        .command("ls")
+        .aliases(["status", "list"])
+        .description("List deployments with state, local URL, and connection status")
+        .action(async (_opts, cmd) => {
+            await statusCommand(globals(cmd));
+        }),
+    "Basic"
+);
+
+inGroup(
+    program
+        .command("up")
+        .description("Pick a model, preview cost, provision, and connect a local endpoint")
+        .option("--name <instance>", "name for this deployment (defaults to the model alias)")
+        .option("--port <port>", "local port to forward to (defaults to catalog base_port)", (v) => parseInt(v, 10))
+        .option("-y, --yes", "skip the cost confirmation prompt")
+        .action(async (opts, cmd) => {
+            await upCommand(globals(cmd), { name: opts.name, port: opts.port, yes: opts.yes });
+        }),
+    "Basic"
+);
+
+inGroup(
+    program
+        .command("down [name]")
+        .description("Destroy a deployment (terraform destroy)")
+        .option("-y, --yes", "skip the confirmation prompt")
+        .action(async (name, opts, cmd) => {
+            await downCommand(globals(cmd), name, { yes: opts.yes });
+        }),
+    "Basic"
+);
+
+inGroup(
+    program
+        .command("start [name]")
+        .description("Restart a stopped deployment and re-forward its endpoint")
+        .action(async (name, _opts, cmd) => {
+            await startCommand(globals(cmd), name);
+        }),
+    "Basic"
+);
+
+inGroup(
+    program
+        .command("stop [name]")
+        .description("Stop a deployment's instance (keeps disk + model cache)")
+        .option("-w, --wait", "wait until the instance is fully stopped")
+        .action(async (name, opts, cmd) => {
+            await stopCommand(globals(cmd), name, { wait: opts.wait });
+        }),
+    "Basic"
+);
+
+inGroup(
+    program
+        .command("logs [name]")
+        .description("Tail the model server's logs over SSM")
+        .action(async (name, _opts, cmd) => {
+            await logsCommand(globals(cmd), name);
+        }),
+    "Basic"
+);
+
+inGroup(
+    program
+        .command("doctor")
+        .description("Check prerequisites (terraform, aws, SSM plugin, credentials, region)")
+        .action(async (_opts, cmd) => {
+            await doctorCommand(globals(cmd));
+        }),
+    "Advanced"
+);
+
+inGroup(
+    program
+        .command("connect [name]")
+        .description("(Re)establish SSM port-forward(s) to local port(s)")
+        .option("-a, --all", "connect every running deployment")
+        .action(async (name, opts, cmd) => {
+            await connectCommand(globals(cmd), name, { all: opts.all });
+        }),
+    "Advanced"
+);
+
+inGroup(
+    program
+        .command("disconnect [name]")
+        .description("Tear down local port-forward(s) without stopping the instance")
+        .option("-a, --all", "disconnect every deployment")
+        .action(async (name, opts, cmd) => {
+            await disconnectCommand(globals(cmd), name, { all: opts.all });
+        }),
+    "Advanced"
+);
+
+inGroup(
+    program
+        .command("ssh [name]")
+        .description("Open an SSM shell on a deployment's instance")
+        .action(async (name, _opts, cmd) => {
+            await sshCommand(globals(cmd), name);
+        }),
+    "Advanced"
+);
+
+inGroup(
+    program
+        .command("config")
+        .description("Show or edit global config (~/.llmrun/config.json)")
+        .option("--set <key=value...>", "set a config value (profile, region, base_port, idle_timeout)")
+        .action(async (opts, cmd) => {
+            await configCommand(globals(cmd), { set: opts.set });
+        }),
+    "Advanced"
+);
 
 async function main(): Promise<void> {
     if (process.argv.length <= 2) {

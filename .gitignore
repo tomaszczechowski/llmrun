@@ -21,6 +21,10 @@ crash.log
 # local llmrun state (only relevant if a user points state here)
 .llmrun/
 
+# docs build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
 # os / editor
 .DS_Store
 *.swp

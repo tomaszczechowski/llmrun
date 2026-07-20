@@ -58,7 +58,7 @@ export function resolveAws(flags: CliAwsFlags, catalog: Catalog | undefined, glo
         flags.region ??
         process.env.AWS_REGION ??
         process.env.AWS_DEFAULT_REGION ??
-        catalog?.defaults.region ??
+        catalog?.defaults.aws_region ??
         global.region ??
         undefined;
 

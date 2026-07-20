@@ -24,6 +24,8 @@ const deploymentStateSchema = z.object({
     idleTimeout: z.string(),
     instanceId: z.string().optional(),
     createdAt: z.string(),
+    /** Set while `llmrun up` is running; cleared once the instance ID is known. */
+    provisioningAt: z.string().optional(),
     /** PID of the active SSM port-forward process, if any. */
     forwardPid: z.number().optional(),
 });

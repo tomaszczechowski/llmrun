@@ -58,7 +58,10 @@ function envFor(sel: AwsSelection): NodeJS.ProcessEnv {
     const env = { ...process.env };
 
     if (sel.profile) env.AWS_PROFILE = sel.profile;
+    // Always override AWS_REGION so the shell environment can't silently redirect
+    // the deployment to a different region than what llmrun.yaml specifies.
     if (sel.region) env.AWS_REGION = sel.region;
+    else delete env.AWS_REGION;
 
     return env;
 }

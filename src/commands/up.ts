@@ -90,6 +90,7 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
         remotePort: 8000,
         idleTimeout,
         createdAt: new Date().toISOString(),
+        provisioningAt: new Date().toISOString(),
     };
     saveDeployment(state);
 
@@ -131,7 +132,7 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
     if (!out.instance_id) {
         throw new LlmrunError("Terraform did not return an instance id.", "Check the Terraform output above.");
     }
-    updateDeployment(name, { instanceId: out.instance_id });
+    updateDeployment(name, { instanceId: out.instance_id, provisioningAt: undefined });
     success(`Instance ${cyan(out.instance_id)} created`);
 
     const runSpin = spinner("Waiting for the instance to reach 'running'");

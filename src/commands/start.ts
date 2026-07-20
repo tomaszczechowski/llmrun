@@ -20,7 +20,24 @@ export async function startCommand(flags: GlobalFlags, nameArg: string | undefin
 
     await assertPreflight(sel);
 
-    await startInstance(sel, state.instanceId);
+    try {
+        await startInstance(sel, state.instanceId);
+    } catch (err: any) {
+        if (err?.Code === "InsufficientInstanceCapacity" || err?.name === "InsufficientInstanceCapacity") {
+            throw new LlmrunError(
+                `No capacity for ${state.instanceType} in the current region right now.`,
+                [
+                    `Options:`,
+                    `  • Wait 15–60 min and retry — spot capacity fluctuates`,
+                    `  • Edit llmrun.yaml to use a different instance_type (e.g. g5.2xlarge)`,
+                    `    then run: llmrun down ${name} && llmrun up`,
+                    `  • Try a different region with --region (e.g. --region us-east-1)`,
+                ].join("\n")
+            );
+        }
+        throw err;
+    }
+
     const spin = spinner("Waiting for the instance to reach 'running'");
     await waitForInstanceState(sel, state.instanceId, ["running"]);
     spin.succeed("Instance running");

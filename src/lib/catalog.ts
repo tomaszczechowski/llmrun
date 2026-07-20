@@ -41,7 +41,7 @@ const modelSchema = z
 const defaultsSchema = z
     .object({
         aws_profile: z.string().optional(),
-        region: z.string().optional(),
+        aws_region: z.string().optional(),
         idle_timeout: z.string().default("30m"),
         base_port: z.number().int().min(1024).max(65535).default(8000),
         engine: z.enum(["vllm"]).default("vllm"),

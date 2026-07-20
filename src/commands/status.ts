@@ -17,7 +17,7 @@ export async function statusCommand(flags: GlobalFlags): Promise<void> {
     // Fetch live instance state for all deployments in parallel.
     const live = await Promise.all(
         deployments.map(async (d) => {
-            if (!d.instanceId) return "no-instance";
+            if (!d.instanceId) return d.provisioningAt ? "provisioning" : "no-instance";
 
             try {
                 const info = await describeInstance(selectionForDeployment(d, flags), d.instanceId);

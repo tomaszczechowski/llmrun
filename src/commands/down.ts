@@ -4,6 +4,7 @@ import { loadDeployment, removeDeployment } from "../lib/state.js";
 import { resolveDeploymentName } from "../lib/select.js";
 import { stopPortForward } from "../lib/ssm.js";
 import * as tf from "../lib/terraform.js";
+import { LlmrunError } from "../lib/errors.js";
 import { info, success } from "../lib/ui.js";
 
 export interface DownOptions {
@@ -31,8 +32,14 @@ export async function downCommand(flags: GlobalFlags, nameArg: string | undefine
     stopPortForward(state.forwardPid);
 
     info("Running terraform destroy…");
-    await tf.destroy(name, sel);
+    try {
+        await tf.destroy(name, sel);
+    } catch (err: any) {
+        // Workspace missing means terraform never ran — nothing to destroy.
+        if (!(err instanceof LlmrunError) || !err.message.includes("workspace")) throw err;
+        info("No terraform workspace found — skipping destroy.");
+    }
 
     removeDeployment(name);
-    success(`Deployment "${name}" destroyed.`);
+    success(`Deployment "${name}" removed.`);
 }
