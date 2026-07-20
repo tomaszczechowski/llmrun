@@ -11,6 +11,11 @@
     }
 }
 
+.VPHero .tagline {
+    font-size: 19px !important;
+    opacity: 0.7 !important;
+}
+
 /* ── Feature cards ────────────────────────────────────────────────────────── */
 
 .VPFeatures .container {

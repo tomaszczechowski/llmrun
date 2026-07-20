@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <rect width="48" height="48" rx="11" fill="white"/>
+  <!-- Source node -->
+  <circle cx="12" cy="24" r="3" fill="#818cf8"/>
+  <!-- Three branch lines -->
+  <line x1="15" y1="24" x2="22" y2="14" stroke="#818cf8" stroke-width="1.75" stroke-linecap="round"/>
+  <line x1="15" y1="24" x2="22" y2="24" stroke="#818cf8" stroke-width="1.75" stroke-linecap="round"/>
+  <line x1="15" y1="24" x2="22" y2="34" stroke="#818cf8" stroke-width="1.75" stroke-linecap="round"/>
+  <!-- Target nodes -->
+  <circle cx="25" cy="14" r="3" fill="#818cf8"/>
+  <circle cx="25" cy="24" r="3" fill="#818cf8"/>
+  <circle cx="25" cy="34" r="3" fill="#818cf8"/>
+  <!-- Connecting to right endpoint lines -->
+  <line x1="28" y1="14" x2="35" y2="14" stroke="#818cf8" stroke-width="1.75" stroke-linecap="round"/>
+  <line x1="28" y1="24" x2="35" y2="24" stroke="#818cf8" stroke-width="1.75" stroke-linecap="round"/>
+  <line x1="28" y1="34" x2="35" y2="34" stroke="#818cf8" stroke-width="1.75" stroke-linecap="round"/>
+  <!-- Endpoint dots -->
+  <circle cx="36" cy="14" r="2" fill="#4ade80"/>
+  <circle cx="36" cy="24" r="2" fill="#4ade80"/>
+  <circle cx="36" cy="34" r="2" fill="#4ade80"/>
+</svg>

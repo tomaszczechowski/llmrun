@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <rect width="48" height="48" rx="11" fill="white"/>
+  <!-- Coin circle -->
+  <circle cx="24" cy="24" r="13" stroke="#818cf8" stroke-width="2"/>
+  <!-- Dollar vertical line -->
+  <line x1="24" y1="14" x2="24" y2="34" stroke="#818cf8" stroke-width="2" stroke-linecap="round"/>
+  <!-- Dollar top arc -->
+  <path d="M20 17.5 Q24 15.5 28 17.5 Q30 19 28 21 Q24 22.5 20 24" stroke="#818cf8" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <!-- Dollar bottom arc -->
+  <path d="M20 24 Q16 26 20 29.5 Q24 32.5 28 30.5 Q30.5 29 28.5 27" stroke="#818cf8" stroke-width="2" stroke-linecap="round" fill="none"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <rect width="48" height="48" rx="11" fill="white"/>
+  <!-- Shield -->
+  <path d="M24 8 L36 13 L36 24 C36 31 30 36.5 24 39 C18 36.5 12 31 12 24 L12 13 Z"
+        stroke="#818cf8" stroke-width="2" stroke-linejoin="round"/>
+  <!-- Checkmark inside -->
+  <polyline points="18,24 22,28 30,19" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
