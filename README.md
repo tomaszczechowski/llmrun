@@ -1,90 +1,53 @@
-# llmrun
+<p align="center">
+  <img src="docs/public/logo.svg" width="72" height="72" alt="llmrun" />
+</p>
 
-> Run open-source LLMs on AWS EC2 from your terminal. Pick a model, spin up a
-> right-sized GPU instance (Terraform), serve it with vLLM, and get a local
-> OpenAI-compatible endpoint over AWS SSM — auto-stopping when idle so you only
-> pay while you use it.
+<h1 align="center">llmrun</h1>
 
-Your app points at `http://localhost:8000/v1` with any OpenAI SDK and just works.
+<p align="center">Work locally with deployed open-models in your cloud.</p>
 
-## Why
+<p align="center">
+  <a href="https://www.npmjs.com/package/llmrun"><img src="https://img.shields.io/npm/v/llmrun?color=6366f1&labelColor=1e1b4b" alt="npm version" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-6366f1?labelColor=1e1b4b" alt="Apache-2.0" /></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-6366f1?labelColor=1e1b4b" alt="Node ≥ 20" /></a>
+  <a href="https://www.terraform.io"><img src="https://img.shields.io/badge/terraform-%3E%3D1.5-6366f1?labelColor=1e1b4b" alt="Terraform ≥ 1.5" /></a>
+</p>
 
-- 📋 **Editable catalog** — `llmrun.yaml` maps a friendly alias → a HuggingFace
-  repo → the GPU instance needed to serve it.
-- 💸 **Cost preview + approval** before anything is provisioned.
-- 🔒 **Local access over AWS SSM** — no public IP, no open ports, no SSH keys.
-- ⏹️ **Configurable idle auto-stop** — the instance stops itself when idle.
-- 🩺 **`llmrun doctor`** preflight (CLIs, credentials, GPU quota) that also runs
-  automatically before `up` / `start`, with a CPU fallback for small models when
-  GPU quota is unavailable.
+<br />
 
-## Requirements
+<p align="center">
+  <img src="docs/public/diagram.svg" alt="llmrun — local machine to AWS GPU to IDE" width="100%" />
+</p>
 
-- Node.js ≥ 20 and [pnpm](https://pnpm.io)
-- [Terraform](https://developer.hashicorp.com/terraform/install)
-- [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
-  with the
-  [Session Manager plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
-- AWS credentials configured (`aws configure` or SSO)
+<br />
 
-## Install (development)
+## Why llmrun?
+
+- **No local GPU required** — your laptop stays cool. Models run on a right-sized AWS GPU instance you spin up on demand and let idle-stop when you're done.
+- **Pay for infrastructure, not tokens** — no per-token pricing. You pay AWS on-demand rates (~$0.80/hr for a 7B model) only while the instance is running.
+- **Your data stays in your cloud** — inference never leaves your AWS account. No third-party API sees your prompts, code, or documents — full isolation for sensitive or proprietary work.
+
+## Install
 
 ```bash
-pnpm install
-pnpm build
-node dist/cli.js --help
-# or during development:
-pnpm dev -- --help
+npm install -g llmrun
+# or
+pnpm add -g llmrun
 ```
 
 ## Quick start
 
 ```bash
-llmrun init                 # scaffold llmrun.yaml
-llmrun doctor               # check prerequisites
-llmrun models               # list the catalog
-llmrun up                   # pick a model → approve cost → provision → connect
-llmrun ls                   # see deployments, local URLs, connection state
-llmrun logs                 # tail the model server
-llmrun stop                 # stop (keeps disk + model cache)
-llmrun start                # resume
-llmrun down                 # destroy everything
+llmrun init      # scaffold llmrun.yaml
+llmrun doctor    # check prerequisites
+llmrun up        # pick a model → approve cost → provision → connect
 ```
 
-## Commands
+Your model is now available at `http://localhost:8000/v1` — a full OpenAI-compatible endpoint.
 
-| Command                    | Purpose                                                   |
-| -------------------------- | --------------------------------------------------------- |
-| `llmrun init`              | Scaffold an editable `llmrun.yaml`.                       |
-| `llmrun doctor`            | Check terraform, aws, SSM plugin, credentials, region.    |
-| `llmrun models`            | List the merged catalog with instance types + cost.       |
-| `llmrun up`                | Pick a model, preview cost, provision, connect.           |
-| `llmrun ls` / `status`     | List deployments with state, local URL, connection.       |
-| `llmrun stop [name]`       | Stop the instance (keeps disk + model cache).             |
-| `llmrun start [name]`      | Restart a stopped deployment and re-forward.              |
-| `llmrun down [name]`       | Destroy a deployment (`terraform destroy`).               |
-| `llmrun connect [name] -a` | (Re)establish port-forward(s); multiple run concurrently. |
-| `llmrun disconnect [name]` | Tear down port-forward(s) without stopping.               |
-| `llmrun ssh [name]`        | Open an SSM shell.                                        |
-| `llmrun logs [name]`       | Tail the model server logs over SSM.                      |
-| `llmrun config`            | Show/edit global config (`~/.llmrun/config.json`).        |
+## Docs
 
-`[name]` is a deployment (one running instance). It defaults to the chosen model
-alias; override with `llmrun up --name <instance>` to run the same model twice.
-Omit `[name]` and llmrun infers the single deployment or shows a picker.
-
-## Configuration
-
-Precedence (highest first): CLI flags → environment (`AWS_PROFILE` /
-`AWS_REGION`) → `llmrun.yaml` `defaults` → `~/.llmrun/config.json` → AWS CLI
-default.
-
-See `llmrun.yaml` after `llmrun init` for the model catalog format.
-
-## Status
-
-Phase 1 (MVP). Bedrock routing, a public HTTPS URL option, an S3 state backend,
-and multi-model-per-instance serving are planned for later phases.
+Full documentation at **[llmrun.sh](https://llmrun.sh)** — configuration, model catalog, coding assistant integrations, and command reference.
 
 ## License
 

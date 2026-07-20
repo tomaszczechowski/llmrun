@@ -1,0 +1,188 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 440" font-family="system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+
+  <!-- Background -->
+  <rect width="900" height="440" fill="#0c0b18"/>
+
+  <!-- Ambient glow behind AWS box -->
+  <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#4f46e5" stop-opacity="0.12"/>
+    <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
+  </radialGradient>
+  <ellipse cx="447" cy="165" rx="260" ry="140" fill="url(#glow)"/>
+
+  <!-- ── Box 1 · Your Machine ─────────────────────────────────────── -->
+  <rect x="28" y="62" width="186" height="218" rx="14"
+        fill="#13111f" stroke="rgba(129,140,248,0.3)" stroke-width="1"/>
+
+  <!-- Terminal window -->
+  <rect x="44" y="80" width="154" height="100" rx="8"
+        fill="#0a0916" stroke="rgba(129,140,248,0.25)" stroke-width="1"/>
+  <!-- Title bar -->
+  <rect x="44" y="80" width="154" height="22" rx="8" fill="#1a1830"/>
+  <rect x="44" y="93" width="154" height="9" fill="#1a1830"/>
+  <circle cx="58"  cy="91" r="3.5" fill="#ff5f57" opacity="0.9"/>
+  <circle cx="70"  cy="91" r="3.5" fill="#ffbd2e" opacity="0.9"/>
+  <circle cx="82"  cy="91" r="3.5" fill="#27c93f" opacity="0.9"/>
+  <!-- Terminal text -->
+  <text x="56" y="117" font-size="10.5" fill="#818cf8"
+        font-family="'SF Mono','Fira Code',monospace">$ llmrun up</text>
+  <text x="56" y="132" font-size="10" fill="#4ade80" opacity="0.8"
+        font-family="'SF Mono','Fira Code',monospace">✔ SSM agent online</text>
+  <text x="56" y="147" font-size="10" fill="#94a3b8" opacity="0.7"
+        font-family="'SF Mono','Fira Code',monospace">▶ Model is ready</text>
+  <text x="56" y="162" font-size="10" fill="#64748b"
+        font-family="'SF Mono','Fira Code',monospace">localhost:8000/v1</text>
+
+  <!-- Labels -->
+  <text x="121" y="205" text-anchor="middle" font-size="14" font-weight="700" fill="#e2e8f0">Your Machine</text>
+  <text x="121" y="222" text-anchor="middle" font-size="12" fill="#64748b">llmrun CLI</text>
+
+  <!-- Endpoint pill -->
+  <rect x="44" y="232" width="154" height="26" rx="13"
+        fill="#1e1c38" stroke="rgba(129,140,248,0.4)" stroke-width="1"/>
+  <text x="121" y="249" text-anchor="middle" font-size="11" fill="#818cf8">localhost:8000/v1</text>
+
+  <!-- ── Arrow 1 ──────────────────────────────────────────────────── -->
+  <!-- Up arrow (llmrun up) -->
+  <line x1="218" y1="155" x2="278" y2="155"
+        stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+  <polygon points="278,150 287,155 278,160" fill="#818cf8" fill-opacity="0.8"/>
+  <text x="253" y="147" text-anchor="middle" font-size="10" fill="#94a3b8">provision</text>
+
+  <!-- Down arrow (SSM/API response) -->
+  <line x1="278" y1="175" x2="218" y2="175"
+        stroke="#4ade80" stroke-width="1.5" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+  <polygon points="218,170 209,175 218,180" fill="#4ade80" fill-opacity="0.8"/>
+  <text x="253" y="191" text-anchor="middle" font-size="10" fill="#94a3b8">SSM tunnel</text>
+
+  <!-- ── Box 2 · AWS Cloud ─────────────────────────────────────────── -->
+  <rect x="292" y="42" width="320" height="250" rx="14"
+        fill="#13111f" stroke="rgba(255,153,0,0.3)" stroke-width="1.5"/>
+
+  <!-- AWS badge -->
+  <rect x="552" y="54" width="46" height="20" rx="10"
+        fill="rgba(255,153,0,0.12)" stroke="rgba(255,153,0,0.45)" stroke-width="1"/>
+  <text x="575" y="67" text-anchor="middle" font-size="10" font-weight="700" fill="#ff9900">AWS</text>
+
+  <!-- EC2 inner box -->
+  <rect x="310" y="76" width="284" height="150" rx="10"
+        fill="#1a1830" stroke="rgba(129,140,248,0.25)" stroke-width="1"/>
+
+  <!-- GPU chip -->
+  <rect x="324" y="92" width="40" height="40" rx="7"
+        fill="#21204a" stroke="rgba(129,140,248,0.5)" stroke-width="1"/>
+  <rect x="330" y="98" width="28" height="28" rx="4"
+        fill="none" stroke="#818cf8" stroke-width="1" stroke-opacity="0.6"/>
+  <rect x="334" y="102" width="20" height="20" rx="2" fill="#4f46e5" fill-opacity="0.3"/>
+  <!-- chip pins left -->
+  <line x1="316" y1="103" x2="324" y2="103" stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="316" y1="110" x2="324" y2="110" stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="316" y1="117" x2="324" y2="117" stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="316" y1="124" x2="324" y2="124" stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.5"/>
+  <!-- chip pins right -->
+  <line x1="364" y1="103" x2="372" y2="103" stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="364" y1="110" x2="372" y2="110" stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="364" y1="117" x2="372" y2="117" stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.5"/>
+  <line x1="364" y1="124" x2="372" y2="124" stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.5"/>
+
+  <!-- Instance info -->
+  <text x="374" y="105" font-size="13" font-weight="700" fill="#e2e8f0">EC2 GPU Instance</text>
+  <text x="374" y="121" font-size="11" fill="#94a3b8">g6.xlarge · NVIDIA L4 · 24 GB VRAM</text>
+
+  <!-- Badges row -->
+  <rect x="374" y="130" width="42" height="16" rx="8"
+        fill="rgba(129,140,248,0.15)" stroke="rgba(129,140,248,0.4)" stroke-width="1"/>
+  <text x="395" y="141" text-anchor="middle" font-size="9" font-weight="600" fill="#818cf8">vLLM</text>
+
+  <rect x="422" y="130" width="80" height="16" rx="8"
+        fill="rgba(34,197,94,0.1)" stroke="rgba(34,197,94,0.35)" stroke-width="1"/>
+  <text x="462" y="141" text-anchor="middle" font-size="9" fill="#4ade80">OpenAI compat.</text>
+
+  <!-- Model -->
+  <line x1="324" y1="158" x2="580" y2="158" stroke="rgba(129,140,248,0.12)" stroke-width="1"/>
+  <text x="324" y="174" font-size="11" fill="#64748b">Model</text>
+  <text x="370" y="174" font-size="11" fill="#94a3b8">Qwen/Qwen2.5-7B-Instruct</text>
+
+  <!-- HuggingFace badge -->
+  <rect x="324" y="183" width="70" height="16" rx="8"
+        fill="rgba(255,198,0,0.08)" stroke="rgba(255,198,0,0.3)" stroke-width="1"/>
+  <text x="359" y="194" text-anchor="middle" font-size="9" fill="#fbbf24">HuggingFace</text>
+  <rect x="400" y="183" width="82" height="16" rx="8"
+        fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.3)" stroke-width="1"/>
+  <text x="441" y="194" text-anchor="middle" font-size="9" fill="#818cf8">auto tensor-parallel</text>
+
+  <!-- Footer info inside AWS box -->
+  <rect x="310" y="238" width="284" height="42" rx="8" fill="#0f0e1e"/>
+  <text x="452" y="256" text-anchor="middle" font-size="11" fill="#4b5563">Idle auto-stop · EBS model cache preserved</text>
+  <text x="452" y="272" text-anchor="middle" font-size="11" fill="#4b5563">No inbound ports · IAM-scoped · SSM only</text>
+
+  <!-- ── Arrow 2 ──────────────────────────────────────────────────── -->
+  <line x1="616" y1="155" x2="672" y2="155"
+        stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+  <polygon points="672,150 681,155 672,160" fill="#818cf8" fill-opacity="0.8"/>
+  <text x="648" y="147" text-anchor="middle" font-size="10" fill="#94a3b8">inference</text>
+
+  <line x1="672" y1="175" x2="616" y2="175"
+        stroke="#4ade80" stroke-width="1.5" stroke-opacity="0.7" stroke-dasharray="4 3"/>
+  <polygon points="616,170 607,175 616,180" fill="#4ade80" fill-opacity="0.8"/>
+  <text x="648" y="191" text-anchor="middle" font-size="10" fill="#94a3b8">response</text>
+
+  <!-- ── Box 3 · IDE / Assistant ──────────────────────────────────── -->
+  <rect x="686" y="62" width="186" height="218" rx="14"
+        fill="#13111f" stroke="rgba(129,140,248,0.3)" stroke-width="1"/>
+
+  <!-- Code window -->
+  <rect x="702" y="80" width="154" height="105" rx="8"
+        fill="#0a0916" stroke="rgba(129,140,248,0.25)" stroke-width="1"/>
+  <rect x="702" y="80" width="154" height="22" rx="8" fill="#1a1830"/>
+  <rect x="702" y="93" width="154" height="9" fill="#1a1830"/>
+  <circle cx="716" cy="91" r="3.5" fill="#ff5f57" opacity="0.9"/>
+  <circle cx="728" cy="91" r="3.5" fill="#ffbd2e" opacity="0.9"/>
+  <circle cx="740" cy="91" r="3.5" fill="#27c93f" opacity="0.9"/>
+  <!-- Code lines -->
+  <rect x="714" y="113" width="56" height="5" rx="2" fill="#818cf8" fill-opacity="0.5"/>
+  <rect x="714" y="124" width="88" height="5" rx="2" fill="#64748b" fill-opacity="0.5"/>
+  <rect x="714" y="135" width="70" height="5" rx="2" fill="#64748b" fill-opacity="0.4"/>
+  <rect x="714" y="146" width="44" height="5" rx="2" fill="#4ade80" fill-opacity="0.5"/>
+  <rect x="714" y="157" width="76" height="5" rx="2" fill="#64748b" fill-opacity="0.3"/>
+  <rect x="714" y="168" width="60" height="5" rx="2" fill="#818cf8" fill-opacity="0.3"/>
+
+  <!-- Labels -->
+  <text x="779" y="210" text-anchor="middle" font-size="14" font-weight="700" fill="#e2e8f0">IDE / Assistant</text>
+  <text x="779" y="228" text-anchor="middle" font-size="11" fill="#64748b">Continue · Cursor · Cline</text>
+  <text x="779" y="243" text-anchor="middle" font-size="11" fill="#64748b">Aider · Open WebUI</text>
+
+  <!-- OpenAI compat pill -->
+  <rect x="702" y="252" width="154" height="22" rx="11"
+        fill="#1e1c38" stroke="rgba(129,140,248,0.35)" stroke-width="1"/>
+  <text x="779" y="267" text-anchor="middle" font-size="10" fill="#818cf8">Any OpenAI-compatible client</text>
+
+  <!-- ── Benefits strip ────────────────────────────────────────────── -->
+  <rect x="28" y="306" width="844" height="108" rx="12"
+        fill="#0f0e1e" stroke="rgba(129,140,248,0.12)" stroke-width="1"/>
+
+  <!-- Benefit 1 -->
+  <text x="170" y="340" text-anchor="middle" font-size="22">🚫</text>
+  <text x="170" y="364" text-anchor="middle" font-size="13" font-weight="700" fill="#e2e8f0">No local GPU required</text>
+  <text x="170" y="382" text-anchor="middle" font-size="11" fill="#64748b">Run 7B–70B models on any laptop</text>
+  <text x="170" y="397" text-anchor="middle" font-size="11" fill="#64748b">via AWS on-demand</text>
+
+  <!-- Divider -->
+  <line x1="338" y1="318" x2="338" y2="402" stroke="rgba(129,140,248,0.12)" stroke-width="1"/>
+
+  <!-- Benefit 2 -->
+  <text x="450" y="340" text-anchor="middle" font-size="22">💸</text>
+  <text x="450" y="364" text-anchor="middle" font-size="13" font-weight="700" fill="#e2e8f0">~$0.80/hr vs $20+/month</text>
+  <text x="450" y="382" text-anchor="middle" font-size="11" fill="#64748b">Pay only while you use it. Idle</text>
+  <text x="450" y="397" text-anchor="middle" font-size="11" fill="#64748b">auto-stop keeps costs minimal.</text>
+
+  <!-- Divider -->
+  <line x1="562" y1="318" x2="562" y2="402" stroke="rgba(129,140,248,0.12)" stroke-width="1"/>
+
+  <!-- Benefit 3 -->
+  <text x="730" y="340" text-anchor="middle" font-size="22">🔓</text>
+  <text x="730" y="364" text-anchor="middle" font-size="13" font-weight="700" fill="#e2e8f0">Open-source, no vendor lock-in</text>
+  <text x="730" y="382" text-anchor="middle" font-size="11" fill="#64748b">Full control over the model.</text>
+  <text x="730" y="397" text-anchor="middle" font-size="11" fill="#64748b">No data sent to third parties.</text>
+
+</svg>
