@@ -138,6 +138,11 @@ program
     });
 
 async function main(): Promise<void> {
+    if (process.argv.length <= 2) {
+        program.outputHelp();
+        process.exit(0);
+    }
+
     try {
         await program.parseAsync(process.argv);
     } catch (err) {

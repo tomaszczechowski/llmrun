@@ -18,6 +18,7 @@ export async function statusCommand(flags: GlobalFlags): Promise<void> {
     const live = await Promise.all(
         deployments.map(async (d) => {
             if (!d.instanceId) return "no-instance";
+
             try {
                 const info = await describeInstance(selectionForDeployment(d, flags), d.instanceId);
 
@@ -45,5 +46,6 @@ export async function statusCommand(flags: GlobalFlags): Promise<void> {
 
     heading("Deployments");
     table(["NAME", "MODEL", "STATE", "INSTANCE", "LOCAL", "FWD", "COST"], rows);
+
     console.log("\n" + dim("Endpoints are http://localhost:<LOCAL>/v1 while FWD=yes. Costs approximate."));
 }

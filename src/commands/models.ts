@@ -8,6 +8,7 @@ export async function modelsCommand(flags: GlobalFlags): Promise<void> {
     const { catalog, sources } = loadCatalogContext(flags);
 
     heading("Models");
+
     if (catalog.models.length === 0) {
         info("No models defined. Add some to your llmrun.yaml.");
         return;
@@ -23,6 +24,7 @@ export async function modelsCommand(flags: GlobalFlags): Promise<void> {
     });
 
     table(["ALIAS", "HF REPO", "INSTANCE", "GPU", "EST. COST", "IDLE"], rows);
+
     console.log("\n" + dim(`Catalog sources: ${sources.join(", ")}`));
     console.log(dim("Costs are approximate (us-east-1 on-demand)."));
 }

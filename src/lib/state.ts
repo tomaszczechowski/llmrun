@@ -63,10 +63,12 @@ export function listDeployments(): DeploymentState[] {
     const dir = deploymentsDir();
 
     if (!existsSync(dir)) return [];
+
     const names = readdirSync(dir, { withFileTypes: true })
         .filter((d) => d.isDirectory())
         .map((d) => d.name);
     const results: DeploymentState[] = [];
+
     for (const name of names) {
         if (existsSync(statePath(name))) {
             try {
@@ -76,6 +78,7 @@ export function listDeployments(): DeploymentState[] {
             }
         }
     }
+
     return results.sort((a, b) => a.name.localeCompare(b.name));
 }
 
