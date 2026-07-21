@@ -17,6 +17,14 @@ export interface InstanceSpec {
 }
 
 export const INSTANCE_SPECS: Record<string, InstanceSpec> = {
+    // --- G4dn (NVIDIA T4, 16 GB VRAM) ---
+    "g4dn.xlarge": { vcpus: 4, gpus: 1, gpuType: "T4", usdPerHour: 0.526 },
+    "g4dn.2xlarge": { vcpus: 8, gpus: 1, gpuType: "T4", usdPerHour: 0.752 },
+    "g4dn.4xlarge": { vcpus: 16, gpus: 1, gpuType: "T4", usdPerHour: 1.204 },
+    "g4dn.8xlarge": { vcpus: 32, gpus: 1, gpuType: "T4", usdPerHour: 2.264 },
+    "g4dn.12xlarge": { vcpus: 48, gpus: 4, gpuType: "T4", usdPerHour: 3.912 },
+    "g4dn.16xlarge": { vcpus: 64, gpus: 1, gpuType: "T4", usdPerHour: 4.352 },
+
     // --- G6 (NVIDIA L4) ---
     "g6.xlarge": { vcpus: 4, gpus: 1, gpuType: "L4", usdPerHour: 0.8048 },
     "g6.2xlarge": { vcpus: 8, gpus: 1, gpuType: "L4", usdPerHour: 0.9776 },
@@ -79,6 +87,7 @@ export function formatUsd(value: number): string {
 
 /** VRAM per single GPU, in GB, keyed by the gpuType used in INSTANCE_SPECS. */
 const GPU_VRAM_GB: Record<string, number> = {
+    T4: 16,
     L4: 24,
     L40S: 48,
     A10G: 24,

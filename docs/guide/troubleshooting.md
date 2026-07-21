@@ -106,6 +106,52 @@ The error message tells you the exact maximum (`estimated maximum model length i
 
 For 32k+ context with a 32B model, use a multi-GPU instance such as `g5.12xlarge` (4× A10G, 96 GB VRAM).
 
+**GPU VRAM by instance** — includes the multi-GPU `g4dn.12xlarge` which is often more available than `g5` instances:
+
+| Instance | GPU | Total VRAM | Good for |
+|---|---|---|---|
+| `g4dn.xlarge` – `g4dn.8xlarge` | 1× T4 | 16 GB | Models up to ~7B (fp16) or ~13B (AWQ) |
+| `g4dn.12xlarge` | 4× T4 | **64 GB** | 32B AWQ with full context — good g5 alternative |
+| `g5.2xlarge` / `g6.2xlarge` | 1× A10G / L4 | 24 GB | 32B AWQ, short context (≤ 2k) |
+| `g5.12xlarge` / `g6.12xlarge` | 4× A10G / L4 | 96 GB | 32B AWQ with full 32k context |
+| `g6e.2xlarge` | 1× L40S | 48 GB | 32B fp16, or 70B AWQ |
+| `p4d.24xlarge` | 8× A100 40 GB | 320 GB | Very large models, long context |
+
+::: tip g5 capacity constrained?
+`g4dn.12xlarge` (4× T4, 64 GB) is a practical fallback — it's an older GPU but widely available and fits 32B AWQ models comfortably. llmrun automatically enables tensor parallelism across all 4 GPUs.
+:::
+
+---
+
+## CUDA out of memory during model loading
+
+**Symptom**
+
+```
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 136.00 MiB.
+GPU 0 has a total capacity of 14.56 GiB of which 79.81 MiB is free.
+```
+
+**Cause**
+
+The model weights alone exceed the GPU's VRAM. Unlike the KV cache error above (which happens after weights load), this crash occurs during loading itself. Common trigger: using a `g4dn` instance (T4, 16 GB) for a model that needs more VRAM than that.
+
+For example, Qwen2.5-32B-AWQ needs ~22 GB just for weights — it cannot fit on any single-GPU `g4dn` instance (16 GB each).
+
+**Fix**
+
+Use an instance with more VRAM, or switch to a smaller model:
+
+| Want to run | Minimum instance | Notes |
+|---|---|---|
+| 7B AWQ | `g4dn.xlarge` (16 GB) | |
+| 13B AWQ | `g4dn.2xlarge` (16 GB) | tight |
+| 32B AWQ | `g4dn.12xlarge` (4× T4, 64 GB) | good fallback when g5 unavailable |
+| 32B AWQ | `g5.2xlarge` (A10G, 24 GB) | short context only (≤ 2k) |
+| 70B AWQ | `g6e.2xlarge` (L40S, 48 GB) | |
+
+Update the `instance_type` in `llmrun.yaml` and re-provision with `llmrun down` + `llmrun up`.
+
 ---
 
 ## No EC2 capacity in the selected region / AZ
@@ -126,7 +172,7 @@ llmrun checks which AZs offer the instance type before provisioning, then retrie
 
 - Wait 15–60 minutes and try again — AWS capacity is transient and usually recovers.
 - Try a different region: set `aws_region` in `llmrun.yaml` or pass `--region <region>`.
-- Use a different (often more available) instance type, e.g. `g5.xlarge` instead of `g5.2xlarge`.
+- Switch to a more available instance type. `g5` capacity is often constrained — `g4dn.12xlarge` (4× T4, 64 GB) is a widely available alternative that fits 32B AWQ models with full context length.
 
 ---
 
