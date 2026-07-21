@@ -2,6 +2,67 @@
 
 Common issues encountered when running llmrun, with actionable fixes.
 
+## Diagnosing problems with `llmrun logs`
+
+`llmrun logs` is the first command to run when something isn't working. It tails the vLLM service journal directly from the instance over SSM — no SSH key needed.
+
+```sh
+llmrun logs                  # if only one deployment is running
+llmrun logs <name>           # for a specific deployment
+```
+
+### What to look for
+
+**Model still downloading** — first boot pulls weights from HuggingFace (can take 5–20 min depending on model size). Normal output looks like:
+
+```
+Downloading shards: 100%|██████████| 8/8 [04:23<00:00]
+Loading weights took 3.94 seconds
+```
+
+**Model loaded, server starting** — after weights load, vLLM allocates KV cache and starts the HTTP server. Look for:
+
+```
+INFO:     Application startup complete.
+```
+
+This is the signal that the endpoint is ready to accept requests.
+
+**KV cache error** — not enough GPU memory for the requested context length:
+
+```
+ValueError: To serve at least one request with the model's max seq len (32768),
+8.0 GiB KV cache is needed, which is larger than the available KV cache memory (0.58 GiB).
+```
+
+→ See [KV cache too small](#vllm-crashes-on-startup-kv-cache-too-small) below.
+
+**Gated model / missing token**:
+
+```
+huggingface_hub.errors.RepositoryNotFoundError: 401 Client Error
+```
+
+→ See [Gated HuggingFace repos](#model-download-stalls-or-fails-gated-huggingface-repo) below.
+
+**Service crash-looping** — if the service exits and systemd keeps restarting it, you'll see repeating blocks ending in:
+
+```
+systemd[1]: llmrun-server.service: Main process exited, code=exited, status=1/FAILURE
+systemd[1]: llmrun-server.service: Failed with result 'exit-code'.
+systemd[1]: Restarting llmrun-server.service
+```
+
+The root cause is always in the lines just before the first `FAILURE` line.
+
+### Checking deployment status
+
+```sh
+llmrun ls
+```
+
+Shows all deployments with their current state (`provisioning`, `running`, `stopped`, `no-instance`) and the local endpoint URL.
+
 ---
 
 ## vLLM crashes on startup — KV cache too small
