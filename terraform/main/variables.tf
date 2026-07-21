@@ -8,6 +8,12 @@ variable "region" {
   type        = string
 }
 
+variable "az_index" {
+  description = "Index into the region's availability zones (0, 1, 2). Change to retry in a different AZ when capacity is unavailable."
+  type        = number
+  default     = 0
+}
+
 variable "instance_type" {
   description = "EC2 instance type (e.g. g6.xlarge for GPU, c7i.4xlarge for CPU fallback)."
   type        = string

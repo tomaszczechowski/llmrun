@@ -1,6 +1,8 @@
 import {
     EC2Client,
     DescribeInstancesCommand,
+    DescribeAvailabilityZonesCommand,
+    DescribeInstanceTypeOfferingsCommand,
     StartInstancesCommand,
     StopInstancesCommand,
     type InstanceStateName,
@@ -174,4 +176,47 @@ export function quotaConsoleUrl(region: string | undefined, quotaCode: string): 
     const r = region ?? "us-east-1";
 
     return `https://${r}.console.aws.amazon.com/servicequotas/home/services/ec2/quotas/${quotaCode}`;
+}
+
+/**
+ * Returns the AZs (sorted alphabetically, max 3) in which the given instance
+ * type is offered. Uses DescribeInstanceTypeOfferings — this tells you WHERE
+ * the type exists, but not whether capacity is available right now. It's a
+ * cheap pre-flight that eliminates AZs that never have the instance.
+ *
+ * Falls back to all available AZs in the region if the API call fails.
+ */
+export async function getInstanceTypeAzs(sel: AwsSelection, instanceType: string): Promise<string[]> {
+    const client = ec2Client(sel);
+
+    try {
+        const res = await client.send(
+            new DescribeInstanceTypeOfferingsCommand({
+                LocationType: "availability-zone",
+                Filters: [{ Name: "instance-type", Values: [instanceType] }],
+            })
+        );
+        const azs = (res.InstanceTypeOfferings ?? [])
+            .map((o) => o.Location ?? "")
+            .filter(Boolean)
+            .sort();
+
+        if (azs.length > 0) return azs.slice(0, 3);
+    } catch {
+        // Fall through to the AZ list fallback below.
+    }
+
+    // Fallback: return all available AZs in the region (sorted, max 3).
+    try {
+        const res = await client.send(
+            new DescribeAvailabilityZonesCommand({ Filters: [{ Name: "state", Values: ["available"] }] })
+        );
+        return (res.AvailabilityZones ?? [])
+            .map((z) => z.ZoneName ?? "")
+            .filter(Boolean)
+            .sort()
+            .slice(0, 3);
+    } catch {
+        return [];
+    }
 }

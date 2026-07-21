@@ -22,6 +22,7 @@ export interface TerraformVars {
     mode: string;
     remote_port: number;
     idle_timeout_seconds: number;
+    az_index?: number;
     context_length?: number;
     quantization?: string;
     hf_token?: string;
@@ -66,27 +67,41 @@ function envFor(sel: AwsSelection): NodeJS.ProcessEnv {
     return env;
 }
 
-async function runTerraform(name: string, sel: AwsSelection, args: string[], quiet = false): Promise<string> {
+async function runTerraform(
+    name: string,
+    sel: AwsSelection,
+    args: string[],
+    quiet = false
+): Promise<{ stdout: string; stderr: string }> {
     const cwd = mainDir(name);
 
     if (!existsSync(cwd)) {
         throw new LlmrunError(`Terraform workspace for "${name}" is missing.`, "Try running `llmrun up` again.");
     }
+
+    // Stream to the user AND capture for error analysis.
+    const stdioOpt = quiet
+        ? (["ignore", "pipe", "pipe"] as const)
+        : (["ignore", ["inherit", "pipe"], ["inherit", "pipe"]] as const);
+
     const result = await execa("terraform", args, {
         cwd,
         env: envFor(sel),
-        stdio: quiet ? ["ignore", "pipe", "pipe"] : ["ignore", "inherit", "inherit"],
+        stdio: stdioOpt,
         reject: false,
     });
 
     if (result.exitCode !== 0) {
-        throw new LlmrunError(
+        const captured = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+        const err = new LlmrunError(
             `Terraform ${args[0]} failed (exit ${result.exitCode}).`,
             quiet ? result.stderr : "See the Terraform output above."
-        );
+        ) as LlmrunError & { captured: string };
+        err.captured = captured;
+        throw err;
     }
 
-    return result.stdout ?? "";
+    return { stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
 }
 
 export async function init(name: string, sel: AwsSelection): Promise<void> {
@@ -113,13 +128,22 @@ export async function destroy(name: string, sel: AwsSelection): Promise<void> {
     ]);
 }
 
+/** Returns true when a terraform error is due to EC2 capacity being unavailable in the target AZ. */
+export function isCapacityError(err: unknown): boolean {
+    const captured = (err as any)?.captured ?? "";
+    const message = (err as any)?.message ?? "";
+    return (
+        captured.includes("InsufficientInstanceCapacity") || message.includes("InsufficientInstanceCapacity")
+    );
+}
+
 export interface TerraformOutputs {
     instance_id?: string;
     public_ip?: string;
 }
 
 export async function outputs(name: string, sel: AwsSelection): Promise<TerraformOutputs> {
-    const raw = await runTerraform(name, sel, ["output", "-json", "-no-color"], true);
+    const { stdout: raw } = await runTerraform(name, sel, ["output", "-json", "-no-color"], true);
 
     if (!raw.trim()) return {};
     const parsed = JSON.parse(raw) as Record<string, { value: unknown }>;

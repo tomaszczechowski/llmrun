@@ -7,9 +7,9 @@ import { assertPreflight } from "./doctor.js";
 import { checkGpuQuota } from "../lib/doctor.js";
 import { estimateCost, formatUsd, getInstanceSpec, checkVramFit } from "../lib/instances.js";
 import { allocateLocalPort } from "../lib/ports.js";
-import { uniqueDeploymentName, saveDeployment, updateDeployment, type DeploymentState } from "../lib/state.js";
+import { uniqueDeploymentName, saveDeployment, updateDeployment, removeDeployment, type DeploymentState } from "../lib/state.js";
 import * as tf from "../lib/terraform.js";
-import { waitForInstanceState, waitForSsmOnline } from "../lib/aws.js";
+import { waitForInstanceState, waitForSsmOnline, getInstanceTypeAzs } from "../lib/aws.js";
 import { establishPortForward } from "../lib/ssm.js";
 import { waitForModelHealthy } from "../lib/health.js";
 import { heading, info, success, warn, error, keyValues, spinner, dim, cyan, bold, symbols } from "../lib/ui.js";
@@ -99,6 +99,18 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
         `Model ${cyan(model.hf_repo)} on ${cyan(target.instanceType)} (${target.mode.toUpperCase()}) in ${sel.region}`
     );
 
+    // Pre-check: find AZs that offer this instance type (capacity is not
+    // guaranteed, but we can skip AZs that never have it and show the plan).
+    const azCheckSpin = spinner(`Checking availability zones for ${target.instanceType}`);
+    const offeredAzs = await getInstanceTypeAzs(sel, target.instanceType);
+    if (offeredAzs.length === 0) {
+        azCheckSpin.warn(`Could not determine AZ availability — will try the region default.`);
+    } else {
+        azCheckSpin.succeed(
+            `${target.instanceType} offered in: ${offeredAzs.join(", ")} — will try each if needed`
+        );
+    }
+
     const vars: tf.TerraformVars = {
         name,
         region: sel.region,
@@ -109,6 +121,7 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
         mode: target.mode,
         remote_port: 8000,
         idle_timeout_seconds: idleSeconds,
+        az_index: 0,
         context_length: model.context_length,
         quantization: target.quantization,
         hf_token: hfToken,
@@ -124,8 +137,47 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
         throw err;
     }
 
-    info("Applying Terraform (creating EC2 instance, IAM, security group)…");
-    await tf.apply(name, sel);
+    // Retry across offered AZs when a given AZ has no capacity right now.
+    // Terraform will fail fast (~4 min timeout) instead of hanging 10+ min.
+    const maxAz = Math.max(offeredAzs.length, 1);
+    let capacityExhausted = false;
+    for (let azIdx = 0; azIdx < maxAz; azIdx++) {
+        if (azIdx > 0) {
+            const prevAz = offeredAzs[azIdx - 1] ?? `AZ ${azIdx - 1}`;
+            const nextAz = offeredAzs[azIdx] ?? `AZ ${azIdx}`;
+            warn(`No capacity in ${prevAz} — retrying in ${nextAz}…`);
+            vars.az_index = azIdx;
+            tf.prepareWorkspace(name, vars);
+        }
+        info(
+            `Applying Terraform (creating EC2 instance, IAM, VPC)${azIdx > 0 ? ` — ${offeredAzs[azIdx] ?? `AZ ${azIdx}`}` : ""}…`
+        );
+        try {
+            await tf.apply(name, sel);
+            capacityExhausted = false;
+            break;
+        } catch (err) {
+            if (!tf.isCapacityError(err)) throw err;
+            capacityExhausted = true;
+            if (azIdx < maxAz - 1) continue;
+            // All AZs exhausted — clean up orphaned infra before surfacing the error.
+            warn(`No ${target.instanceType} capacity available in any AZ (${offeredAzs.join(", ")}).`);
+            warn("Cleaning up partial infrastructure…");
+            try {
+                await tf.destroy(name, sel);
+            } catch {
+                // Best-effort cleanup; don't mask the original capacity error.
+            }
+            removeDeployment(name);
+            throw new LlmrunError(
+                `No ${target.instanceType} capacity available in ${sel.region}.`,
+                `Options:\n` +
+                    `  • Wait 15–60 min and try again — AWS capacity is often transient.\n` +
+                    `  • Try a different region: add --region <region> or change aws_region in llmrun.yaml.\n` +
+                    `  • Use a different instance type in your model's llmrun.yaml entry.`
+            );
+        }
+    }
 
     const out = await tf.outputs(name, sel);
 
@@ -261,23 +313,42 @@ async function previewCostAndConfirm(model: Model, target: ResolvedTarget, autoY
             )
     );
 
-    // Warn if the model's weights likely won't fit the instance's GPU memory —
-    // this is what causes vLLM to CUDA-OOM and crash-loop.
+    // Warn if the model won't fit the instance's GPU memory with a usable KV cache.
+    // This catches both the hard OOM case and the subtler "weights fit but no KV
+    // cache headroom" case that causes vLLM to crash on startup.
     if (target.mode === "gpu") {
         const fit = checkVramFit(target.instanceType, model.hf_repo, target.quantization);
 
         if (fit && !fit.fits) {
             console.log("");
-            warn(
-                `~${fit.paramsB}B params ≈ ${Math.round(fit.weightsGb)} GB of weights likely won't fit ` +
-                    `${fit.vramGb} GB of GPU memory — vLLM will probably crash with CUDA out-of-memory.`
-            );
-            console.log(
-                "  " +
-                    dim(
-                        "Fix: use a larger / multi-GPU instance, a quantized model (e.g. an AWQ repo with `quantization: awq`), or a smaller model."
-                    )
-            );
+            const kvBudget = Math.max(fit.kvBudgetGb, 0);
+            if (kvBudget < 0.5) {
+                // Weights barely fit or overflow — almost no KV cache headroom.
+                warn(
+                    `~${fit.paramsB}B params need ~${fit.usedGb.toFixed(1)} GB (weights + overhead) ` +
+                        `but only ${fit.vramGb} GB VRAM available — vLLM will crash: no room for KV cache.`
+                );
+                console.log(
+                    "  " +
+                        dim(
+                            "Fix: use a larger / multi-GPU instance, or a smaller model. " +
+                                `A ${fit.paramsB}B AWQ model needs at least ${Math.ceil(fit.usedGb + 2)} GB VRAM to serve any requests.`
+                        )
+                );
+            } else {
+                // Weights fit but KV cache budget is too small for a useful context window.
+                // KV cache scales ~linearly with context length; estimate tokens from budget.
+                const maxCtx = Math.floor((kvBudget / 8) * 32768);
+                warn(
+                    `~${fit.paramsB}B params leave only ${kvBudget.toFixed(1)} GB for KV cache on ${fit.vramGb} GB VRAM. ` +
+                        `Max context length is roughly ${maxCtx.toLocaleString()} tokens — ` +
+                        `vLLM will crash if context_length (${model.context_length ?? 0}) exceeds this.`
+                );
+                console.log(
+                    "  " +
+                        dim(`Fix: set context_length: ${Math.min(maxCtx, 4096)} (or lower) in llmrun.yaml for this model.`)
+                );
+            }
 
             if (!autoYes) {
                 const proceed = await confirm({ message: "Provision anyway?", default: false });

@@ -81,5 +81,11 @@ resource "aws_instance" "this" {
     encrypted   = true
   }
 
+  # Fail fast when the AZ has no capacity so the CLI can retry the next AZ
+  # rather than hanging silently for the provider's default 10-minute retry window.
+  timeouts {
+    create = "4m"
+  }
+
   tags = merge(var.tags, { Name = "llmrun-${var.name}" })
 }

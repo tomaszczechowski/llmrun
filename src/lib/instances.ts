@@ -104,26 +104,39 @@ export function estimateParamsB(nameOrRepo: string): number | undefined {
 /** Bytes-per-parameter implied by a quantization string (fp16 default). */
 function bytesPerParam(quantization?: string): number {
     if (!quantization) return 2;
-    if (/awq|gptq|int4|4bit|nf4/i.test(quantization)) return 0.6;
+    // AWQ/GPTQ 4-bit: theoretical 0.5 B/param but vLLM loading overhead raises it to ~0.68 in practice.
+    if (/awq|gptq|int4|4bit|nf4/i.test(quantization)) return 0.68;
     if (/fp8|int8|8bit/i.test(quantization)) return 1;
 
     return 2;
 }
 
+// GPU driver + CUDA context + activation buffers consumed before any model weight.
+const CUDA_OVERHEAD_GB = 1.5;
+// Minimum KV cache needed to serve at least one request at a reasonable context length.
+const MIN_KV_CACHE_GB = 2.0;
+
 export interface VramFit {
     paramsB: number;
     weightsGb: number;
     vramGb: number;
-    /** Whether weights (plus modest overhead) plausibly fit in VRAM. */
+    /** Whether weights + loading overhead + minimum KV cache plausibly fit in VRAM. */
     fits: boolean;
+    /** GB consumed by weights + CUDA overhead (excludes KV cache). */
+    usedGb: number;
+    /** GB left over for KV cache after weights and overhead. */
+    kvBudgetGb: number;
 }
 
 /**
- * Heuristic check of whether a model's weights fit an instance's GPU memory.
- * Returns undefined when the parameter count or VRAM can't be determined.
- * Accounts only for weights + ~10% overhead, leaving room for KV cache — it is a
- * guard against obvious over-provisioning (e.g. a 32B fp16 model on one 48GB GPU),
- * not an exact planner.
+ * Heuristic check of whether a model fits an instance's GPU memory with room
+ * for a usable KV cache. Returns undefined when the parameter count or VRAM
+ * can't be determined.
+ *
+ * Formula: weightsGb + CUDA_OVERHEAD (1.5 GB) + MIN_KV_CACHE (2 GB) <= total VRAM
+ *
+ * This catches the common failure mode of AWQ/GPTQ models that technically fit
+ * weight-wise on a GPU but leave no headroom for KV cache, causing vLLM to crash.
  */
 export function checkVramFit(instanceType: string, nameOrRepo: string, quantization?: string): VramFit | undefined {
     const paramsB = estimateParamsB(nameOrRepo);
@@ -132,6 +145,15 @@ export function checkVramFit(instanceType: string, nameOrRepo: string, quantizat
     if (paramsB === undefined || vramGb === 0) return undefined;
 
     const weightsGb = paramsB * bytesPerParam(quantization);
+    const usedGb = weightsGb + CUDA_OVERHEAD_GB;
+    const kvBudgetGb = vramGb - usedGb;
 
-    return { paramsB, weightsGb, vramGb, fits: weightsGb * 1.1 <= vramGb * 0.92 };
+    return {
+        paramsB,
+        weightsGb,
+        vramGb,
+        usedGb,
+        kvBudgetGb,
+        fits: usedGb + MIN_KV_CACHE_GB <= vramGb,
+    };
 }

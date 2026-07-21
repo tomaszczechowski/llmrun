@@ -37,7 +37,7 @@ fi
 
 # --- Model server systemd unit -----------------------------------------------
 if [ "$${ENGINE}" = "vllm" ]; then
-  EXTRA_ARGS=""
+  EXTRA_ARGS="--gpu-memory-utilization 0.95"
   if [ "$${CONTEXT_LENGTH}" != "0" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --max-model-len $${CONTEXT_LENGTH}"; fi
   if [ -n "$${QUANTIZATION}" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --quantization $${QUANTIZATION}"; fi
 
@@ -62,7 +62,7 @@ ExecStart=/usr/bin/docker run --rm --name llmrun-server --gpus all \
   -e HUGGING_FACE_HUB_TOKEN=$${HF_TOKEN} \
   -v /opt/llmrun/hf-cache:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
-  --model $${HF_REPO} --host 0.0.0.0 --port 8000 $${EXTRA_ARGS}
+  $${HF_REPO} --host 0.0.0.0 --port 8000 $${EXTRA_ARGS}
 ExecStop=/usr/bin/docker stop llmrun-server
 
 [Install]
