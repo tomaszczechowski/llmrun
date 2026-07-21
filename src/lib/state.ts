@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { z } from "zod";
 import { deploymentDir, deploymentsDir } from "./paths.js";
@@ -86,7 +87,19 @@ export function listDeployments(): DeploymentState[] {
 
 /** Remove a deployment's workspace directory entirely (after `terraform destroy`). */
 export function removeDeployment(name: string): void {
-    rmSync(deploymentDir(name), { recursive: true, force: true });
+    const dir = deploymentDir(name);
+    try {
+        rmSync(dir, { recursive: true, force: true });
+    } catch (e: any) {
+        if (e.code === "ENOTEMPTY") {
+            // macOS Finder can write .DS_Store files into the directory between
+            // rmSync's internal scan and deletion passes, causing a spurious
+            // ENOTEMPTY. Fall back to the shell which handles this atomically.
+            execFileSync("rm", ["-rf", dir]);
+        } else {
+            throw e;
+        }
+    }
 }
 
 /**
