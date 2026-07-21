@@ -22,6 +22,7 @@ export default defineConfig({
                     { text: "Configuration", link: "/guide/configuration" },
                     { text: "Model Catalog", link: "/guide/model-catalog" },
                     { text: "Coding Assistants", link: "/guide/integrations" },
+                    { text: "Troubleshooting", link: "/guide/troubleshooting" },
                 ],
             },
         ],
