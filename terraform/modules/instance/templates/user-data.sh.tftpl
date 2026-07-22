@@ -15,6 +15,7 @@ REMOTE_PORT="${remote_port}"
 IDLE_SECONDS="${idle_timeout_seconds}"
 CONTEXT_LENGTH="${context_length}"
 QUANTIZATION="${quantization}"
+TOOL_CALL_PARSER="${tool_call_parser}"
 HF_TOKEN="${hf_token}"
 
 mkdir -p /opt/llmrun /var/lib/llmrun
@@ -40,6 +41,7 @@ if [ "$${ENGINE}" = "vllm" ]; then
   EXTRA_ARGS="--gpu-memory-utilization 0.95"
   if [ "$${CONTEXT_LENGTH}" != "0" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --max-model-len $${CONTEXT_LENGTH}"; fi
   if [ -n "$${QUANTIZATION}" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --quantization $${QUANTIZATION}"; fi
+  if [ -n "$${TOOL_CALL_PARSER}" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --enable-auto-tool-choice --tool-call-parser $${TOOL_CALL_PARSER}"; fi
 
   # Shard across all GPUs on the instance (tensor parallelism), else vLLM uses
   # only one GPU and large models CUDA-OOM on multi-GPU instances.

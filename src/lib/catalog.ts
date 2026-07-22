@@ -32,6 +32,7 @@ const modelSchema = z
         disk_gb: z.number().int().positive().default(100),
         context_length: z.number().int().positive().optional(),
         quantization: z.string().optional(),
+        tool_call_parser: z.string().optional(), // vLLM --tool-call-parser, e.g. "hermes" for Qwen models
         hf_token_env: z.string().optional(),
         idle_timeout: z.string().optional(), // per-model override of defaults.idle_timeout
         cpu_fallback: cpuFallbackSchema.optional(),

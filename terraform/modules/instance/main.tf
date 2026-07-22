@@ -53,6 +53,7 @@ locals {
     idle_timeout_seconds = var.idle_timeout_seconds
     context_length       = var.context_length
     quantization         = var.quantization
+    tool_call_parser     = var.tool_call_parser
     hf_token             = var.hf_token
   })
 }

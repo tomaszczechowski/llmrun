@@ -124,6 +124,7 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
         az_index: 0,
         context_length: model.context_length,
         quantization: target.quantization,
+        tool_call_parser: model.tool_call_parser,
         hf_token: hfToken,
     };
     tf.prepareWorkspace(name, vars);

@@ -10,6 +10,7 @@ models:
       disk_gb: 100                          # EBS volume size (model weights are cached here)
       context_length: 8192                  # vLLM --max-model-len
       # quantization: awq                   # optional: awq, gptq, fp8
+      # tool_call_parser: hermes            # optional: enables tool/function calling
       # hf_token_env: HF_TOKEN             # env var holding your HF token (gated repos)
       # idle_timeout: 1h                    # per-model override of the global default
 ```
@@ -64,6 +65,29 @@ For large models that need multiple GPUs, pick a multi-GPU instance. llmrun auto
   disk_gb: 200
   context_length: 32768
 ```
+
+## Tool / function calling
+
+By default vLLM starts with tool calling disabled, so clients that send `tool_choice: "auto"` (agentic coding tools, MCP-style clients) get a `400` error. Set `tool_call_parser` to enable it — llmrun passes both `--enable-auto-tool-choice` and `--tool-call-parser <value>` to vLLM:
+
+```yaml
+- alias: fast-7b
+  hf_repo: Qwen/Qwen2.5-7B-Instruct
+  instance_type: g6.xlarge
+  disk_gb: 100
+  tool_call_parser: hermes
+```
+
+Pick the parser that matches the model family:
+
+| Model family | `tool_call_parser` |
+| --- | --- |
+| Qwen (2.5, 3) | `hermes` |
+| Llama 3.1 / 3.3 | `llama3_json` |
+| Mistral / Mixtral | `mistral` |
+| Granite | `granite` |
+
+Check the [vLLM tool calling docs](https://docs.vllm.ai/en/latest/features/tool_calling.html) for the full, up-to-date list — vLLM adds parsers for new model families over time. After changing this field, re-provision with `llmrun down <name>` → `llmrun up`.
 
 ## CPU fallback
 

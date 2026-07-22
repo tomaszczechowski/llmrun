@@ -25,6 +25,7 @@ export interface TerraformVars {
     az_index?: number;
     context_length?: number;
     quantization?: string;
+    tool_call_parser?: string;
     hf_token?: string;
 }
 

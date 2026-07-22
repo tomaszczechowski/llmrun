@@ -123,6 +123,41 @@ For 32k+ context with a 32B model, use a multi-GPU instance such as `g5.12xlarge
 
 ---
 
+## OpenClaw (or other clients) report "Context overflow" below the model's advertised context
+
+**Symptom**
+
+A coding assistant connected via [OpenClaw onboarding](./integrations.md#openclaw) or a custom OpenAI-compatible provider errors out well before the model's known context window is full:
+
+```
+run error: Context overflow: prompt too large for the model. Try /reset (or /new)
+to start a fresh session, or use a larger-context model.
+connected | error
+agent main | session main (openclaw-tui) | vllm/Qwen/Qwen3-8B-AWQ | tokens ?/128k
+```
+
+**Cause**
+
+The client displays the model's *nominal* max context (e.g. 128k for Qwen3-8B, taken from the model ID or its own registry), not the actual limit the server was launched with. `context_length` in `llmrun.yaml` is passed to vLLM as `--max-model-len`, and it's usually set much lower than the model's native maximum to fit the instance's VRAM. Once the conversation (plus tool schemas) exceeds *that* value, vLLM rejects the request — the client just reports it as a generic context overflow using the wrong denominator.
+
+**Fix**
+
+1. Clear the oversized session as suggested: `/reset` or `/new` in the client.
+2. Check what `context_length` is actually configured for the deployment in `llmrun.yaml`, and raise it if the instance has VRAM headroom:
+
+```yaml
+- alias: qwen-8B-AWQ
+  hf_repo: Qwen/Qwen3-8B-AWQ
+  instance_type: g4dn.8xlarge
+  quantization: awq
+  context_length: 32768   # raise toward the model's native max if VRAM allows
+  tool_call_parser: hermes
+```
+
+Then re-provision: `llmrun down <name>` → `llmrun up`. If you push it too high for the instance's VRAM, vLLM will fail on startup with a KV-cache error — see [KV cache too small](#vllm-crashes-on-startup-kv-cache-too-small) above for sizing guidance.
+
+---
+
 ## CUDA out of memory during model loading
 
 **Symptom**

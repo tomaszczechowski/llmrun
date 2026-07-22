@@ -66,6 +66,12 @@ variable "quantization" {
   default     = ""
 }
 
+variable "tool_call_parser" {
+  description = "vLLM --tool-call-parser (e.g. hermes). Empty = tool calling disabled."
+  type        = string
+  default     = ""
+}
+
 variable "hf_token" {
   description = "HuggingFace token for gated repos. Empty = anonymous."
   type        = string
