@@ -150,6 +150,47 @@ Some Qwen/vLLM combinations only return structured tool calls when the request f
 ```
 :::
 
+## OpenCode
+
+Register `llmrun` as a custom provider, then add it to `opencode.json` (project root or `~/.config/opencode/`):
+
+```json
+{
+    "$schema": "https://opencode.ai/config.json",
+    "model": "vllm-local/Qwen/Qwen2.5-7B-Instruct",
+    "provider": {
+        "vllm-local": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "vLLM (local)",
+            "options": {
+                "baseURL": "http://localhost:8000/v1"
+            },
+            "models": {
+                "Qwen/Qwen2.5-7B-Instruct": {
+                    "name": "llmrun — fast-7b",
+                    "limit": {
+                        "context": 8192,
+                        "output": 2048
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+vLLM doesn't validate the API key, so `/connect` → **Other** → provider ID `vllm-local` with any non-empty key (e.g. `sk-local`) is enough — no real credential needed.
+
+Confirm the provider is registered:
+
+```bash
+opencode models
+```
+
+::: tip Set `limit.context` to your actual `context_length`, not the model's native max
+Unlike clients that assume a model's advertised context window, OpenCode lets you set `limit.context` explicitly per model. Set it to match the `context_length` you configured in `llmrun.yaml` for this deployment (`vLLM --max-model-len`) — not the model's larger native maximum. Otherwise OpenCode will keep sending prompts past what your server actually accepts, and vLLM will reject them once the conversation grows. See [Context overflow](./troubleshooting.md#openclaw-or-other-clients-report-context-overflow-below-the-models-advertised-context) for the same issue in OpenClaw.
+:::
+
 ## Note on tool / function calling
 
 Agentic modes (Cline agent, Cursor Composer, etc.) require the model to support tool calling, and vLLM must be launched with `--enable-auto-tool-choice` and a matching `--tool-call-parser`. This is off by default — set `tool_call_parser` on the model entry in `llmrun.yaml` to enable it. See [Tool / function calling](./model-catalog.md#tool-function-calling) for the parser to use per model family. Plain chat and autocomplete work without it.

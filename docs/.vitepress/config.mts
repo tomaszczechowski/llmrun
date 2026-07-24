@@ -32,6 +32,7 @@ export default defineConfig({
                             { text: "Aider", link: "/guide/integrations#aider" },
                             { text: "Open WebUI", link: "/guide/integrations#open-webui" },
                             { text: "OpenClaw", link: "/guide/integrations#openclaw" },
+                            { text: "OpenCode", link: "/guide/integrations#opencode" },
                         ],
                     },
                     { text: "Troubleshooting", link: "/guide/troubleshooting" },
