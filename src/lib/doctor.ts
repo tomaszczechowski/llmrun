@@ -88,7 +88,7 @@ export async function checkAws(sel: AwsSelection): Promise<CheckResult[]> {
             results.push({
                 name: "AWS credentials",
                 status: "fail",
-                detail: res.stderr.split("\n")[0],
+                detail: res.stderr.trim().split("\n")[0],
                 hint: "Configure credentials: `aws configure` or `aws sso login`, or set the right profile.",
             });
         }
