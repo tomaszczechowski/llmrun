@@ -3,6 +3,7 @@ import { defineConfig } from "vitepress";
 export default defineConfig({
     title: "llmrun",
     description: "Work locally with deployed open-models in your cloud.",
+    base: "/llmrun/",
     head: [["link", { rel: "icon", href: "/favicon.ico" }]],
 
     themeConfig: {
