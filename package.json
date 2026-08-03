@@ -1,6 +1,6 @@
 {
     "name": "llmrun",
-    "version": "0.1.0",
+    "version": "1.0.1",
     "description": "Run open-source LLMs on AWS EC2 from a local CLI — pick a model, spin up a right-sized GPU instance, and get a local OpenAI-compatible endpoint over AWS SSM.",
     "keywords": [
         "llm",
@@ -15,6 +15,10 @@
     ],
     "license": "Apache-2.0",
     "author": "Tomasz Czechowski <tomasz@czechowski.pl>",
+    "repository": {
+        "url": "https://github.com/tomaszczechowski/llmrun",
+        "type": "github"
+    },
     "type": "module",
     "bin": {
         "llmrun": "dist/cli.js"

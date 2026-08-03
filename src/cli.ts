@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 import { Command } from "commander";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { LlmrunError } from "./lib/errors.js";
 import { error, dim } from "./lib/ui.js";
 import type { GlobalFlags } from "./lib/context.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const packageJson = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8"));
+const version = packageJson.version;
 
 import { initCommand } from "./commands/init.js";
 import { doctorCommand } from "./commands/doctor.js";
@@ -23,7 +30,7 @@ const program = new Command();
 program
     .name("llmrun")
     .description("Run open-source LLMs on AWS EC2 — pick a model, get a local OpenAI-compatible endpoint.")
-    .version("0.1.0")
+    .version(version)
     .option("--profile <name>", "AWS profile to use (overrides env/yaml/global config)")
     .option("--region <region>", "AWS region to use (overrides env/yaml/global config)");
 
