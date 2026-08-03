@@ -47,7 +47,7 @@ Your model is now available at `http://localhost:8000/v1` — a full OpenAI-comp
 
 ## Docs
 
-Full documentation at **[llmrun.sh](https://llmrun.sh)** — configuration, model catalog, coding assistant integrations, and command reference.
+Full documentation at **[https://tomaszczechowski.github.io/llmrun](https://tomaszczechowski.github.io/llmrun)** — configuration, model catalog, coding assistant integrations, and command reference.
 
 ## License
 
