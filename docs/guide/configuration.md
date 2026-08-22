@@ -18,6 +18,10 @@ models:
       instance_type: g6.xlarge
       disk_gb: 100
       context_length: 8192
+      # quantization: awq                   # optional: awq, gptq, fp8
+      # tool_call_parser: hermes            # optional: enables tool/function calling
+      # hf_token_env: HF_TOKEN             # env var holding your HF token (gated repos)
+      # idle_timeout: 1h                    # per-model override of the global default
 ```
 
 ## Defaults
@@ -29,6 +33,29 @@ models:
 | `idle_timeout` | `30m`           | Auto-stop after inactivity. Formats: `30m`, `1h`, `90s` |
 | `base_port`    | `8000`          | First local port. Each deployment gets the next free one |
 | `engine`       | `vllm`          | Serving engine (only `vllm` supported in v0.1)           |
+
+## Per-Model Fields
+
+These fields are defined under `models:` and control per-deployment behavior.
+
+### Required
+
+| Field            | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| `alias`          | CLI-friendly label for this model (shown in deployment picker) |
+| `hf_repo`        | HuggingFace model ID (e.g., `Qwen/Qwen2.5-7B-Instruct`)      |
+| `instance_type`  | EC2 instance type (e.g., `g5.xlarge`, `g6e.12xlarge`)        |
+| `disk_gb`        | EBS volume size in GB (model weights are cached here)        |
+
+### Optional
+
+| Field               | Default | Description                                                    |
+| ------------------- | ------- | -------------------------------------------------------------- |
+| `context_length`    | —       | vLLM `--max-model-len` (max sequence length in tokens)         |
+| `quantization`      | —       | Quantization type: `awq`, `gptq`, `fp8` (for pre-quantized repos) |
+| `tool_call_parser`  | —       | Enables tool/function calling. Values: `hermes`, `glm`, etc.   |
+| `hf_token_env`      | —       | Environment variable holding HF token (for gated/private repos) |
+| `idle_timeout`      | —       | Per-model override of global `idle_timeout`. Formats: `30m`, `1h` |
 
 ## Resolution order
 
