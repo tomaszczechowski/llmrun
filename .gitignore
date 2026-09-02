@@ -37,3 +37,4 @@ docs/.vitepress/cache/
 !.env.example
 .npmrc
 llmrun.yaml
+!templates/llmrun.yaml

@@ -1,0 +1,47 @@
+# llmrun.yaml — model catalog + defaults for this project.
+# Docs: run `llmrun models` to see the merged catalog, `llmrun up` to launch one.
+
+defaults:
+    # Which AWS profile/region to target. Flags (--profile/--region) and env
+    # (AWS_PROFILE/AWS_REGION) override these.
+    aws_profile: default
+    aws_region: eu-central-1
+
+    # Stop an instance after this much inactivity (accurate to model usage).
+    # Forms: "30m", "1h", "90s", "2h30m". Per-model override allowed below.
+    idle_timeout: 30m
+
+    # Local ports are auto-allocated from here, one per running deployment.
+    base_port: 8000
+
+    engine: vllm
+
+models:
+    # `alias` is YOUR CLI-friendly name (shown in the `llmrun up` picker).
+    # `hf_repo` is the actual HuggingFace model to serve with vLLM.
+    #
+    # SIZING: fp16 weights need ~2 GB of GPU memory per 1B params (an 8B model
+    # ≈ 16 GB, a 32B ≈ 64 GB). Pick an instance whose GPU memory fits the model,
+    # or use a quantized (e.g. AWQ) repo to shrink it. `llmrun up` warns if a
+    # model looks too big for the instance. GPU memory: L4 = 24 GB, A10G = 24 GB,
+    # L40S = 48 GB (multiply by the GPU count on larger instances).
+
+    - alias: fast-7b
+      hf_repo: Qwen/Qwen2.5-7B-Instruct # ungated (no HF token needed); ~14 GB fp16
+      instance_type: g6.xlarge # 1× NVIDIA L4 (24 GB)
+      disk_gb: 100
+      context_length: 8192
+      # For gated repos (e.g. meta-llama/*), set the env var holding your HF token:
+      # hf_token_env: HF_TOKEN
+      # Optional CPU fallback used when GPU quota is unavailable (much slower):
+      # cpu_fallback:
+      #     instance_type: c7i.4xlarge
+      #     engine: ollama
+      #     max_params: 16B
+
+    - alias: qwen-3.8-27B-awq
+      hf_repo: cyankiwi/Qwen3.8-27B-AWQ-INT4
+      instance_type: g6e.2xlarge
+      disk_gb: 200
+      context_length: 200000
+      tool_call_parser: qwen3
