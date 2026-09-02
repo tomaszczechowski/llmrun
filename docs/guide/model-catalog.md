@@ -82,7 +82,8 @@ Pick the parser that matches the model family:
 
 | Model family | `tool_call_parser` |
 | --- | --- |
-| Qwen (2.5, 3) | `hermes` |
+| Qwen 2.5 | `hermes` |
+| Qwen 3 (incl. Coder) | `qwen3_xml` |
 | Llama 3.1 / 3.3 | `llama3_json` |
 | Mistral / Mixtral | `mistral` |
 | Granite | `granite` |

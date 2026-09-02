@@ -151,7 +151,7 @@ The client displays the model's *nominal* max context (e.g. 128k for Qwen3-8B, t
   instance_type: g4dn.8xlarge
   quantization: awq
   context_length: 32768   # raise toward the model's native max if VRAM allows
-  tool_call_parser: hermes
+  tool_call_parser: qwen3_xml
 ```
 
 Then re-provision: `llmrun down <name>` → `llmrun up`. If you push it too high for the instance's VRAM, vLLM will fail on startup with a KV-cache error — see [KV cache too small](#vllm-crashes-on-startup-kv-cache-too-small) above for sizing guidance.
