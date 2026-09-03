@@ -3,7 +3,7 @@ import { listDeployments } from "../lib/state.js";
 import { describeInstance } from "../lib/aws.js";
 import { isProcessAlive } from "../lib/ssm.js";
 import { estimateCost, formatUsd } from "../lib/instances.js";
-import { heading, table, info, dim } from "../lib/ui.js";
+import { heading, table, info } from "../lib/ui.js";
 
 /** List all deployments with their live state, local URL, and connection status. */
 export async function statusCommand(flags: GlobalFlags): Promise<void> {
@@ -20,9 +20,9 @@ export async function statusCommand(flags: GlobalFlags): Promise<void> {
             if (!d.instanceId) return d.provisioningAt ? "provisioning" : "no-instance";
 
             try {
-                const info = await describeInstance(selectionForDeployment(d, flags), d.instanceId);
+                const instance = await describeInstance(selectionForDeployment(d, flags), d.instanceId);
 
-                return info?.state ?? "unknown";
+                return instance?.state ?? "unknown";
             } catch {
                 return "unknown";
             }
@@ -36,7 +36,7 @@ export async function statusCommand(flags: GlobalFlags): Promise<void> {
         return [
             d.name,
             d.alias,
-            String(live[i]),
+            live[i] ?? "unknown",
             d.instanceType,
             `localhost:${d.localPort}`,
             connected,
@@ -47,5 +47,5 @@ export async function statusCommand(flags: GlobalFlags): Promise<void> {
     heading("Deployments");
     table(["NAME", "MODEL", "STATE", "INSTANCE", "LOCAL", "FWD", "COST"], rows);
 
-    console.log("\n" + dim("Endpoints are http://localhost:<LOCAL>/v1 while FWD=yes. Costs approximate."));
+    info("Endpoints are http://localhost:<LOCAL>/v1 while FWD=yes. Costs approximate.");
 }
