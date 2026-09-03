@@ -30,6 +30,7 @@ export default defineConfig({
                             { text: "Continue", link: "/guide/integrations#continue-vs-code-jetbrains" },
                             { text: "Cursor", link: "/guide/integrations#cursor" },
                             { text: "Cline / Roo", link: "/guide/integrations#cline-roo-vs-code" },
+                            { text: "Kilo Code", link: "/guide/integrations#kilo-code-vs-code" },
                             { text: "Aider", link: "/guide/integrations#aider" },
                             { text: "Open WebUI", link: "/guide/integrations#open-webui" },
                             { text: "OpenClaw", link: "/guide/integrations#openclaw" },

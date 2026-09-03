@@ -54,6 +54,17 @@ In the Cline sidebar → Settings:
 - API Key: `sk-local`
 - Model ID: `Qwen/Qwen2.5-7B-Instruct`
 
+## Kilo Code (VS Code)
+
+Kilo Code is a VS Code agent extension in the Cline/Roo family, so it works with any OpenAI-compatible endpoint. In the Kilo Code sidebar → Settings:
+
+- API Provider: **OpenAI Compatible**
+- Base URL: `http://localhost:8000/v1`
+- API Key: `sk-local`
+- Model ID: `Qwen/Qwen2.5-7B-Instruct`
+
+Its Code and Architect modes send tool calls, so the model needs to be provisioned with `tool_call_parser` — see [Note on tool / function calling](#note-on-tool-function-calling) below.
+
 ## Aider
 
 ```bash
@@ -193,4 +204,4 @@ Unlike clients that assume a model's advertised context window, OpenCode lets yo
 
 ## Note on tool / function calling
 
-Agentic modes (Cline agent, Cursor Composer, etc.) require the model to support tool calling, and vLLM must be launched with `--enable-auto-tool-choice` and a matching `--tool-call-parser`. This is off by default — set `tool_call_parser` on the model entry in `llmrun.yaml` to enable it. See [Tool / function calling](./model-catalog.md#tool-function-calling) for the parser to use per model family. Plain chat and autocomplete work without it.
+Agentic modes (Cline/Kilo Code agent, Cursor Composer, etc.) require the model to support tool calling, and vLLM must be launched with `--enable-auto-tool-choice` and a matching `--tool-call-parser`. This is off by default — set `tool_call_parser` on the model entry in `llmrun.yaml` to enable it. See [Tool / function calling](./model-catalog.md#tool-function-calling) for the parser to use per model family. Plain chat and autocomplete work without it.
