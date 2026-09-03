@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2026-09-02
+
+### Changed
+
+- Qwen 3 (including Coder) now uses the `qwen3_xml` tool-call parser instead of `hermes`/`qwen3`. Qwen 2.5 continues to use `hermes`. Updated the model catalog, troubleshooting guide, and starter template accordingly.
+
+## [1.0.2] - 2026-09-02
+
+### Added
+
+- `templates/llmrun.yaml` starter catalog template committed to the repo, with a `.gitignore` exception (`!templates/llmrun.yaml`) so it stays tracked.
+- Per-model configuration reference in the docs, covering required fields (`alias`, `hf_repo`, `instance_type`, `disk_gb`) and optional fields (`context_length`, `quantization`, `tool_call_parser`, `hf_token_env`, `idle_timeout`).
+
 ## [1.0.1] - 2026-08-03
 
 ### Changed
