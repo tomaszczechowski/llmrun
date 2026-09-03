@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" font-family="system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <rect width="1200" height="630" fill="#0c0b18"/>
+  <radialGradient id="glow" cx="50%" cy="38%" r="65%">
+    <stop offset="0%" stop-color="#4f46e5" stop-opacity="0.28"/>
+    <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
+  </radialGradient>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- Logo mark -->
+  <rect x="540" y="104" width="120" height="120" rx="26" fill="#1e1b4b" stroke="rgba(129,140,248,0.45)" stroke-width="1.5"/>
+  <path d="M569 138 L600 164 L569 190" stroke="#818cf8" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="610" y1="190" x2="640" y2="190" stroke="#818cf8" stroke-width="11" stroke-linecap="round"/>
+
+  <!-- Wordmark -->
+  <text x="600" y="330" text-anchor="middle" font-size="72" font-weight="800" fill="#e2e8f0" letter-spacing="-2">llmrun</text>
+  <text x="600" y="384" text-anchor="middle" font-size="26" fill="#94a3b8">Work locally with deployed open-models in your cloud.</text>
+
+  <!-- Pills -->
+  <g font-size="16" font-weight="600">
+    <rect x="291" y="430" width="140" height="34" rx="17" fill="rgba(129,140,248,0.12)" stroke="rgba(129,140,248,0.4)" stroke-width="1"/>
+    <text x="361" y="452" text-anchor="middle" fill="#a5b4fc">No local GPU</text>
+    <rect x="455" y="430" width="180" height="34" rx="17" fill="rgba(129,140,248,0.12)" stroke="rgba(129,140,248,0.4)" stroke-width="1"/>
+    <text x="545" y="452" text-anchor="middle" fill="#a5b4fc">OpenAI-compatible</text>
+    <rect x="659" y="430" width="250" height="34" rx="17" fill="rgba(129,140,248,0.12)" stroke="rgba(129,140,248,0.4)" stroke-width="1"/>
+    <text x="784" y="452" text-anchor="middle" fill="#a5b4fc">Pay per hour, not per token</text>
+  </g>
+
+  <!-- Repo -->
+  <text x="600" y="556" text-anchor="middle" font-size="17" fill="#64748b">github.com/tomaszczechowski/llmrun</text>
+</svg>

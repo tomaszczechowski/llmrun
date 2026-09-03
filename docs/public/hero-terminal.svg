@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 460" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', Menlo, Consolas, monospace">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4f46e5" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#4f46e5" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="22" flood-color="#1e1b4b" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Ambient glow -->
+  <ellipse cx="380" cy="235" rx="350" ry="210" fill="url(#glow)"/>
+
+  <!-- Terminal window -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="28" width="680" height="404" rx="16" fill="#0b0a17"/>
+  </g>
+  <rect x="40" y="28" width="680" height="404" rx="16" fill="none" stroke="rgba(129,140,248,0.35)" stroke-width="1"/>
+
+  <!-- Title bar -->
+  <rect x="40" y="28" width="680" height="44" rx="16" fill="#131126"/>
+  <rect x="40" y="56" width="680" height="16" fill="#131126"/>
+  <line x1="40" y1="72" x2="720" y2="72" stroke="rgba(129,140,248,0.15)" stroke-width="1"/>
+  <circle cx="66" cy="50" r="5.5" fill="#ff5f57"/>
+  <circle cx="86" cy="50" r="5.5" fill="#febc2e"/>
+  <circle cx="106" cy="50" r="5.5" fill="#28c840"/>
+  <text x="380" y="55" text-anchor="middle" font-size="12.5" fill="#64748b">tomasz@mbp — llmrun</text>
+
+  <!-- Session lines -->
+  <text x="72" y="112" font-size="14">
+    <tspan fill="#64748b">tomasz@mbp:~$</tspan><tspan fill="#f1f5f9"> llmrun up</tspan>
+  </text>
+  <text x="72" y="138" font-size="14">
+    <tspan fill="#818cf8">◆  </tspan><tspan fill="#e2e8f0">fast-7b</tspan><tspan fill="#64748b">  →  </tspan><tspan fill="#a5b4fc">g6.xlarge</tspan><tspan fill="#94a3b8"> · NVIDIA L4 · 24 GB</tspan>
+  </text>
+  <text x="72" y="164" font-size="14">
+    <tspan fill="#4ade80">✔  </tspan><tspan fill="#cbd5e1">instance ready</tspan><tspan fill="#64748b"> (48s)</tspan>
+  </text>
+  <text x="72" y="190" font-size="14">
+    <tspan fill="#4ade80">✔  </tspan><tspan fill="#cbd5e1">SSM tunnel open</tspan><tspan fill="#64748b"> — no public IP</tspan>
+  </text>
+  <text x="72" y="216" font-size="14">
+    <tspan fill="#4ade80">✔  </tspan><tspan fill="#cbd5e1">model warm — endpoint live</tspan>
+  </text>
+  <text x="72" y="268" font-size="14">
+    <tspan fill="#64748b">→  </tspan><tspan fill="#818cf8" font-weight="600">http://localhost:8000/v1</tspan>
+  </text>
+  <text x="72" y="320" font-size="14">
+    <tspan fill="#64748b">tomasz@mbp:~$ </tspan><tspan fill="#818cf8" opacity="0.9">█</tspan>
+  </text>
+
+  <!-- Status bar -->
+  <rect x="40" y="388" width="680" height="44" rx="16" fill="#121026"/>
+  <rect x="40" y="388" width="680" height="16" fill="#121026"/>
+  <line x1="40" y1="388" x2="720" y2="388" stroke="rgba(129,140,248,0.15)" stroke-width="1"/>
+  <circle cx="68" cy="410" r="4" fill="#4ade80"/>
+  <text x="82" y="415" font-size="12" fill="#94a3b8">g6.xlarge · vLLM · eu-central-1</text>
+  <text x="692" y="415" font-size="12" fill="#64748b" text-anchor="end">≈ $0.80 / hr</text>
+</svg>

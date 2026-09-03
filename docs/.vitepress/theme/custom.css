@@ -1,19 +1,85 @@
-/* ── Hero ─────────────────────────────────────────────────────────────────── */
+/* ── Typography ───────────────────────────────────────────────────────────── */
 
-.VPHero .text {
-    font-size: 36px !important;
-    line-height: 1.2 !important;
+:root {
+    --vp-font-family:
+        "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --vp-font-family-mono:
+        "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
 
-@media (min-width: 640px) {
-    .VPHero .text {
-        font-size: 42px !important;
-    }
+/* ── Brand colours ────────────────────────────────────────────────────────── */
+
+:root {
+    --vp-c-brand-1: #6366f1;
+    --vp-c-brand-2: #4f46e5;
+    --vp-c-brand-3: #4338ca;
+    --vp-button-brand-bg: #4f46e5;
+    --vp-button-brand-hover-bg: #4338ca;
+    --vp-button-brand-border: transparent;
+    --vp-button-brand-hover-border: transparent;
+    --vp-home-hero-name-color: transparent;
+    --vp-home-hero-name-background: linear-gradient(120deg, #a5b4fc 0%, #818cf8 55%, #6366f1 100%);
+}
+
+.dark {
+    --vp-c-brand-1: #a5b4fc;
+    --vp-c-brand-2: #818cf8;
+    --vp-c-brand-3: #6366f1;
+    --vp-button-brand-bg: #6366f1;
+    --vp-button-brand-hover-bg: #818cf8;
+    --vp-home-hero-name-background: linear-gradient(120deg, #e0e7ff 0%, #a5b4fc 55%, #818cf8 100%);
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+
+.VPHero {
+    position: relative;
+}
+
+/* Centre the hero: the default (no-image) layout is left-aligned and shrinks
+   the text column to 2/3 of the width on desktop. */
+.VPHero .container {
+    text-align: center;
+}
+
+.VPHero .heading {
+    align-items: center;
 }
 
 .VPHero .tagline {
-    font-size: 19px !important;
-    opacity: 0.7 !important;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.VPHero .actions {
+    justify-content: center;
+}
+
+@media (min-width: 960px) {
+    .VPHero .main {
+        width: 100% !important;
+    }
+
+    .VPHero .name,
+    .VPHero .text {
+        max-width: 760px;
+    }
+}
+
+.VPHero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(760px 400px at 50% -140px, rgba(99, 102, 241, 0.16), transparent 70%),
+        radial-gradient(520px 300px at 82% 0%, rgba(129, 140, 248, 0.08), transparent 70%);
+}
+
+.dark .VPHero::before {
+    background:
+        radial-gradient(760px 400px at 50% -140px, rgba(99, 102, 241, 0.24), transparent 70%),
+        radial-gradient(520px 300px at 82% 0%, rgba(129, 140, 248, 0.1), transparent 70%);
 }
 
 /* ── Feature cards ────────────────────────────────────────────────────────── */
@@ -25,19 +91,27 @@
 
 .VPFeature {
     border: 1px solid transparent !important;
-    background: linear-gradient(var(--vp-c-bg-soft), var(--vp-c-bg-soft)) padding-box,
-        linear-gradient(135deg, rgba(129, 140, 248, 0.35), rgba(99, 102, 241, 0.1)) border-box !important;
+    background:
+        linear-gradient(var(--vp-c-bg-soft), var(--vp-c-bg-soft)) padding-box,
+        linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(99, 102, 241, 0.1)) border-box !important;
     border-radius: 12px !important;
     padding: 16px !important;
-    transition: transform 0.22s ease, box-shadow 0.22s ease !important;
+    transition:
+        transform 0.22s ease,
+        box-shadow 0.22s ease !important;
     cursor: default;
 }
 
 .VPFeature:hover {
     transform: translateY(-3px);
     box-shadow: 0 10px 28px rgba(99, 102, 241, 0.15);
-    background: linear-gradient(var(--vp-c-bg-soft), var(--vp-c-bg-soft)) padding-box,
-        linear-gradient(135deg, rgba(129, 140, 248, 0.7), rgba(99, 102, 241, 0.3)) border-box !important;
+    background:
+        linear-gradient(var(--vp-c-bg-soft), var(--vp-c-bg-soft)) padding-box,
+        linear-gradient(135deg, rgba(99, 102, 241, 0.7), rgba(99, 102, 241, 0.3)) border-box !important;
+}
+
+.dark .VPFeature:hover {
+    box-shadow: 0 10px 28px rgba(99, 102, 241, 0.22);
 }
 
 .VPFeature .box {
@@ -56,6 +130,15 @@
     background: rgba(99, 102, 241, 0.12) !important;
     border-radius: 10px !important;
     flex-shrink: 0;
+    transition: transform 0.22s ease;
+}
+
+.dark .VPFeature .icon {
+    background: rgba(129, 140, 248, 0.14) !important;
+}
+
+.VPFeature:hover .icon {
+    transform: scale(1.08) rotate(-4deg);
 }
 
 .VPFeature .title {
@@ -70,16 +153,4 @@
     line-height: 1.65 !important;
     color: var(--vp-c-text-2) !important;
     margin: 0 !important;
-}
-
-/* ── Brand colours ────────────────────────────────────────────────────────── */
-
-:root {
-    --vp-c-brand-1: #818cf8;
-    --vp-c-brand-2: #6366f1;
-    --vp-c-brand-3: #4f46e5;
-    --vp-button-brand-bg: #4f46e5;
-    --vp-button-brand-hover-bg: #4338ca;
-    --vp-button-brand-border: #6366f1;
-    --vp-button-brand-hover-border: #818cf8;
 }
