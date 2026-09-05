@@ -7,8 +7,8 @@ export function baseOptions(): BaseLayoutProps {
             title: appName,
         },
         links: [
-            { url: '/docs/guide/getting-started', text: 'Docs' },
             { url: 'https://www.npmjs.com/package/llmrun', text: 'npm', external: true },
+            { url: gitHubUrl, text: 'github', external: true },
         ],
         githubUrl: gitHubUrl,
     };
