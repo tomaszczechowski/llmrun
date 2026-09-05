@@ -22,7 +22,7 @@ models:
       disk_gb: 100
       context_length: 8192
       # quantization: awq                   # optional: awq, gptq, fp8
-      # tool_call_parser: hermes            # optional: enables tool/function calling
+      # tool_call_parser: qwen3_xml         # optional: vLLM tool-call parser (qwen3_xml, hermes, glm, …)
       # hf_token_env: HF_TOKEN             # env var holding your HF token (gated repos)
       # idle_timeout: 1h                    # per-model override of the global default
 ```
@@ -56,7 +56,7 @@ These fields are defined under `models:` and control per-deployment behavior.
 | ------------------- | ------- | -------------------------------------------------------------- |
 | `context_length`    | —       | vLLM `--max-model-len` (max sequence length in tokens)         |
 | `quantization`      | —       | Quantization type: `awq`, `gptq`, `fp8` (for pre-quantized repos) |
-| `tool_call_parser`  | —       | Enables tool/function calling. Values: `hermes`, `glm`, etc.   |
+| `tool_call_parser`  | —       | vLLM `--tool-call-parser` for tool/function calling. Values: `qwen3_xml`, `hermes`, `glm`, … — must match the model family |
 | `hf_token_env`      | —       | Environment variable holding HF token (for gated/private repos) |
 | `idle_timeout`      | —       | Per-model override of global `idle_timeout`. Formats: `30m`, `1h` |
 

@@ -73,7 +73,13 @@ llmrun models
 llmrun up
 ```
 
-After `llmrun up` completes, the model is available at `http://localhost:8000/v1` — a full OpenAI-compatible endpoint.
+`llmrun up` provisions the instance with Terraform, then waits for the model to come up. While it's waiting, open a second terminal and watch the vLLM warm-up (model download and GPU load):
+
+```bash
+llmrun logs
+```
+
+When `llmrun up` completes, the model is available at `http://localhost:8000/v1` — a full OpenAI-compatible endpoint.
 
 ```bash
 curl http://localhost:8000/v1/chat/completions \
