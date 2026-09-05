@@ -22,8 +22,8 @@ crash.log
 .llmrun/
 
 # docs build output
-docs/.vitepress/dist/
-docs/.vitepress/cache/
+docs/.next/
+docs/out/
 
 # os / editor
 .DS_Store

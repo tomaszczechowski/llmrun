@@ -1,0 +1,4 @@
+{
+    "title": "Guide",
+    "pages": ["getting-started", "configuration", "model-catalog", "integrations", "troubleshooting"]
+}

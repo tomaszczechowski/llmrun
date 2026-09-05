@@ -1,4 +1,7 @@
-# Troubleshooting
+---
+title: Troubleshooting
+description: Common issues encountered when running llmrun, with actionable fixes.
+---
 
 Common issues encountered when running llmrun, with actionable fixes.
 
@@ -35,7 +38,7 @@ ValueError: To serve at least one request with the model's max seq len (32768),
 8.0 GiB KV cache is needed, which is larger than the available KV cache memory (0.58 GiB).
 ```
 
-→ See [KV cache too small](#vllm-crashes-on-startup-kv-cache-too-small) below.
+→ See [KV cache too small](#vllm-crashes-on-startup--kv-cache-too-small) below.
 
 **Gated model / missing token**:
 
@@ -117,9 +120,11 @@ For 32k+ context with a 32B model, use a multi-GPU instance such as `g5.12xlarge
 | `g6e.2xlarge` | 1× L40S | 48 GB | 32B fp16, or 70B AWQ |
 | `p4d.24xlarge` | 8× A100 40 GB | 320 GB | Very large models, long context |
 
-::: tip g5 capacity constrained?
+<Callout type="info" title="g5 capacity constrained?">
+
 `g4dn.12xlarge` (4× T4, 64 GB) is a practical fallback — it's an older GPU but widely available and fits 32B AWQ models comfortably. llmrun automatically enables tensor parallelism across all 4 GPUs.
-:::
+
+</Callout>
 
 ---
 
@@ -127,7 +132,7 @@ For 32k+ context with a 32B model, use a multi-GPU instance such as `g5.12xlarge
 
 **Symptom**
 
-A coding assistant connected via [OpenClaw onboarding](./integrations.md#openclaw) or a custom OpenAI-compatible provider errors out well before the model's known context window is full:
+A coding assistant connected via [OpenClaw onboarding](./integrations.mdx#openclaw) or a custom OpenAI-compatible provider errors out well before the model's known context window is full:
 
 ```
 run error: Context overflow: prompt too large for the model. Try /reset (or /new)
@@ -154,7 +159,7 @@ The client displays the model's *nominal* max context (e.g. 128k for Qwen3-8B, t
   tool_call_parser: qwen3_xml
 ```
 
-Then re-provision: `llmrun down <name>` → `llmrun up`. If you push it too high for the instance's VRAM, vLLM will fail on startup with a KV-cache error — see [KV cache too small](#vllm-crashes-on-startup-kv-cache-too-small) above for sizing guidance.
+Then re-provision: `llmrun down <name>` → `llmrun up`. If you push it too high for the instance's VRAM, vLLM will fail on startup with a KV-cache error — see [KV cache too small](#vllm-crashes-on-startup--kv-cache-too-small) above for sizing guidance.
 
 ---
 

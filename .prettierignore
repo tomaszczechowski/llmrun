@@ -6,3 +6,6 @@ pnpm-lock.yaml
 .terraform
 .claude
 plan.md
+docs/.next
+docs/out
+docs/next-env.d.ts

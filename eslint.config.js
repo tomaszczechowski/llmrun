@@ -8,6 +8,8 @@ export default [
             "node_modules",
             "**/node_modules",
             "**/dist",
+            "docs",
+            "docs/**",
             ".pnpm-store",
             "*.lock",
             "pnpm-lock.yaml",

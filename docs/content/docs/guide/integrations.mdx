@@ -1,4 +1,7 @@
-# Coding Assistants
+---
+title: Coding Assistants
+description: Point any OpenAI-compatible coding tool at your llmrun deployment.
+---
 
 llmrun exposes a standard OpenAI-compatible API, so any tool that supports a custom OpenAI base URL will work. You need three values:
 
@@ -14,9 +17,11 @@ Get the exact model name the server reports:
 curl -s http://localhost:8000/v1/models | jq -r '.data[].id'
 ```
 
-::: tip Forward must be active
+<Callout type="info" title="Forward must be active">
+
 `llmrun ls` must show `FWD=yes` for the deployment. If it shows `no`, run `llmrun connect` first.
-:::
+
+</Callout>
 
 ## Continue (VS Code / JetBrains)
 
@@ -63,7 +68,7 @@ Kilo Code is a VS Code agent extension in the Cline/Roo family, so it works with
 - API Key: `sk-local`
 - Model ID: `Qwen/Qwen2.5-7B-Instruct`
 
-Its Code and Architect modes send tool calls, so the model needs to be provisioned with `tool_call_parser` — see [Note on tool / function calling](#note-on-tool-function-calling) below.
+Its Code and Architect modes send tool calls, so the model needs to be provisioned with `tool_call_parser` — see [Note on tool / function calling](#note-on-tool--function-calling) below.
 
 ## Aider
 
@@ -135,14 +140,15 @@ Verify the provider is reachable:
 openclaw models list --provider vllm
 ```
 
-::: tip Agent mode needs `tool_call_parser`
+<Callout type="info" title="Agent mode needs tool_call_parser">
+
 OpenClaw's agent mode sends `tool_choice: "auto"`, which vLLM rejects with:
 
 ```
 400 "auto" tool choice requires --enable-auto-tool-choice and --tool-call-parser to be set
 ```
 
-unless the model was launched with those flags. Set `tool_call_parser` (e.g. `hermes` for Qwen models) on the model entry in `llmrun.yaml` and re-provision — see [Tool / function calling](./model-catalog.md#tool-function-calling).
+unless the model was launched with those flags. Set `tool_call_parser` (e.g. `hermes` for Qwen models) on the model entry in `llmrun.yaml` and re-provision — see [Tool / function calling](./model-catalog.mdx#tool--function-calling).
 
 Some Qwen/vLLM combinations only return structured tool calls when the request forces `tool_choice: "required"`. If agent mode still misbehaves after enabling the parser, force it per-model in OpenClaw's config:
 
@@ -159,7 +165,8 @@ Some Qwen/vLLM combinations only return structured tool calls when the request f
     },
 }
 ```
-:::
+
+</Callout>
 
 ## OpenCode
 
@@ -198,10 +205,12 @@ Confirm the provider is registered:
 opencode models
 ```
 
-::: tip Set `limit.context` to your actual `context_length`, not the model's native max
-Unlike clients that assume a model's advertised context window, OpenCode lets you set `limit.context` explicitly per model. Set it to match the `context_length` you configured in `llmrun.yaml` for this deployment (`vLLM --max-model-len`) — not the model's larger native maximum. Otherwise OpenCode will keep sending prompts past what your server actually accepts, and vLLM will reject them once the conversation grows. See [Context overflow](./troubleshooting.md#openclaw-or-other-clients-report-context-overflow-below-the-models-advertised-context) for the same issue in OpenClaw.
-:::
+<Callout type="info" title="Set limit.context to your actual context_length, not the model's native max">
+
+Unlike clients that assume a model's advertised context window, OpenCode lets you set `limit.context` explicitly per model. Set it to match the `context_length` you configured in `llmrun.yaml` for this deployment (`vLLM --max-model-len`) — not the model's larger native maximum. Otherwise OpenCode will keep sending prompts past what your server actually accepts, and vLLM will reject them once the conversation grows. See [Context overflow](./troubleshooting.mdx#openclaw-or-other-clients-report-context-overflow-below-the-models-advertised-context) for the same issue in OpenClaw.
+
+</Callout>
 
 ## Note on tool / function calling
 
-Agentic modes (Cline/Kilo Code agent, Cursor Composer, etc.) require the model to support tool calling, and vLLM must be launched with `--enable-auto-tool-choice` and a matching `--tool-call-parser`. This is off by default — set `tool_call_parser` on the model entry in `llmrun.yaml` to enable it. See [Tool / function calling](./model-catalog.md#tool-function-calling) for the parser to use per model family. Plain chat and autocomplete work without it.
+Agentic modes (Cline/Kilo Code agent, Cursor Composer, etc.) require the model to support tool calling, and vLLM must be launched with `--enable-auto-tool-choice` and a matching `--tool-call-parser`. This is off by default — set `tool_call_parser` on the model entry in `llmrun.yaml` to enable it. See [Tool / function calling](./model-catalog.mdx#tool--function-calling) for the parser to use per model family. Plain chat and autocomplete work without it.

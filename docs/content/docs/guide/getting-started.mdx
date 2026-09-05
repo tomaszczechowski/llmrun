@@ -1,4 +1,7 @@
-# Docs
+---
+title: Getting Started
+description: Install llmrun, verify your setup, and spin up your first OpenAI-compatible endpoint.
+---
 
 ## Prerequisites
 
@@ -13,25 +16,46 @@ Run `llmrun doctor` at any time to check all of these automatically.
 
 ## Install
 
-::: code-group
+<CodeBlockTabs defaultValue="npm">
+  <CodeBlockTabsList>
+    <CodeBlockTabsTrigger value="npm">npm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="pnpm">pnpm</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="yarn">yarn</CodeBlockTabsTrigger>
+    <CodeBlockTabsTrigger value="bun">bun</CodeBlockTabsTrigger>
+  </CodeBlockTabsList>
 
-```bash [npm]
-npm install -g llmrun
-```
+  <CodeBlockTab value="npm">
 
-```bash [pnpm]
-pnpm add -g llmrun
-```
+    ```bash
+    npm install -g llmrun
+    ```
 
-```bash [yarn]
-yarn global add llmrun
-```
+  </CodeBlockTab>
 
-```bash [bun]
-bun add -g llmrun
-```
+  <CodeBlockTab value="pnpm">
 
-:::
+    ```bash
+    pnpm add -g llmrun
+    ```
+
+  </CodeBlockTab>
+
+  <CodeBlockTab value="yarn">
+
+    ```bash
+    yarn global add llmrun
+    ```
+
+  </CodeBlockTab>
+
+  <CodeBlockTab value="bun">
+
+    ```bash
+    bun add -g llmrun
+    ```
+
+  </CodeBlockTab>
+</CodeBlockTabs>
 
 ## Quick start
 
@@ -83,6 +107,8 @@ Check quota and get a link to request an increase:
 llmrun doctor
 ```
 
-::: tip First run takes longer
+<Callout type="info" title="First run takes longer">
+
 On first boot the instance downloads the model weights from HuggingFace and loads them into GPU memory. A 7B model takes ~5 minutes; a 32B model can take 20–30 minutes. Subsequent `llmrun start` commands skip the download — weights are cached on the EBS volume.
-:::
+
+</Callout>
