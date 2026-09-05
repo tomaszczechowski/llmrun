@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { gitHubUrl } from '@/lib/shared';
+import { basePath } from '@/lib/shared';
 
 export const metadata: Metadata = {
     title: 'Local LLMs on AWS GPU',
@@ -10,37 +11,37 @@ export const metadata: Metadata = {
 
 const features = [
     {
-        icon: '/icons/no-gpu.svg',
+        icon: `${basePath}/icons/no-gpu.svg`,
         title: 'No local GPU required',
         details:
             "Your laptop stays cool. Models run on the right-sized AWS GPU instance — spin it up when you need it, let it stop itself when you don't.",
     },
     {
-        icon: '/icons/cost.svg',
+        icon: `${basePath}/icons/cost.svg`,
         title: 'Pay for infrastructure, not tokens',
         details:
             "No per-token pricing. You pay AWS on-demand rates (~$0.80/hr) only while the instance is running. Idle auto-stop means you're rarely paying for nothing.",
     },
     {
-        icon: '/icons/security.svg',
+        icon: `${basePath}/icons/security.svg`,
         title: 'Your data stays in your cloud',
         details:
             'Inference never leaves your AWS account. No third-party API receives your prompts, code, or documents — full isolation for sensitive or proprietary work.',
     },
     {
-        icon: '/icons/catalog.svg',
+        icon: `${basePath}/icons/catalog.svg`,
         title: 'Editable model catalog',
         details:
             'llmrun.yaml maps a friendly alias to a HuggingFace repo and the GPU instance needed to serve it. Add, swap, or pin any open-source model in seconds.',
     },
     {
-        icon: '/icons/lock.svg',
+        icon: `${basePath}/icons/lock.svg`,
         title: 'No public IP, no SSH keys',
         details:
             'Access is entirely over AWS SSM port-forwarding. No inbound security group rules, no bastion host, no key pair to manage.',
     },
     {
-        icon: '/icons/parallel.svg',
+        icon: `${basePath}/icons/parallel.svg`,
         title: 'Run multiple models at once',
         details:
             'Each deployment gets its own local port (8000, 8001, …). Forward all concurrently — point different tools at different models without disconnecting anything.',
@@ -54,7 +55,7 @@ export default function Home() {
 
             <header className="relative mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
                 <Link href="/" className="flex items-center gap-2.5">
-                    <Image src="/logo.svg" alt="llmrun logo" width={32} height={32} />
+                    <Image src={basePath + "/logo.svg"} alt="llmrun logo" width={32} height={32} />
                     <span className="text-lg font-bold tracking-tight">llmrun</span>
                 </Link>
                 <nav className="flex items-center gap-6 text-sm text-white/70">
@@ -94,7 +95,7 @@ export default function Home() {
                         GitHub
                     </a>
                 </div>
-                <Image src="/hero-terminal.svg" alt="llmrun terminal session" width={760} height={460} className="mt-14 w-full max-w-3xl" />
+                <Image src={basePath + "/hero-terminal.svg"} alt="llmrun terminal session" width={760} height={460} className="mt-14 w-full max-w-3xl" />
             </section>
 
             <section className="relative mx-auto w-full max-w-6xl px-6 pb-20">
@@ -115,7 +116,7 @@ export default function Home() {
 
             <footer className="relative border-t border-white/10 py-8">
                 <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-6 text-sm text-white/50 sm:flex-row">
-                    <p>© {new Date().getFullYear()} tomaszczechowski · Apache-2.0</p>
+                    <p>© {new Date().getFullYear()} Tomasz Czechowski · Apache-2.0</p>
                     <div className="flex items-center gap-5">
                         <Link href="/docs/guide/getting-started" className="transition-colors hover:text-white">
                             Docs
