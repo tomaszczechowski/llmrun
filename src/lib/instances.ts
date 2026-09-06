@@ -12,6 +12,8 @@ export interface InstanceSpec {
     /** Number of GPUs (0 for CPU instances). */
     gpus: number;
     gpuType?: string;
+    /** Instance memory in GiB (known for CPU instances; used for the CPU vLLM RAM check). */
+    memoryGb?: number;
     /** Approximate on-demand price, USD/hour, us-east-1. */
     usdPerHour: number;
 }
@@ -51,11 +53,24 @@ export const INSTANCE_SPECS: Record<string, InstanceSpec> = {
     "p4d.24xlarge": { vcpus: 96, gpus: 8, gpuType: "A100 40GB", usdPerHour: 32.7726 },
 
     // --- CPU instances (for the CPU fallback path) ---
-    "c7i.2xlarge": { vcpus: 8, gpus: 0, usdPerHour: 0.357 },
-    "c7i.4xlarge": { vcpus: 16, gpus: 0, usdPerHour: 0.714 },
-    "c7i.8xlarge": { vcpus: 32, gpus: 0, usdPerHour: 1.428 },
-    "m7i.2xlarge": { vcpus: 8, gpus: 0, usdPerHour: 0.4032 },
-    "m7i.4xlarge": { vcpus: 16, gpus: 0, usdPerHour: 0.8064 },
+    // Compute-optimized c7i (1:2 vCPU:RAM)
+    "c7i.2xlarge": { vcpus: 8, gpus: 0, memoryGb: 16, usdPerHour: 0.357 },
+    "c7i.4xlarge": { vcpus: 16, gpus: 0, memoryGb: 32, usdPerHour: 0.714 },
+    "c7i.8xlarge": { vcpus: 32, gpus: 0, memoryGb: 64, usdPerHour: 1.428 },
+    "c7i.12xlarge": { vcpus: 48, gpus: 0, memoryGb: 96, usdPerHour: 2.142 },
+    // General-purpose m7i (1:2)
+    "m7i.2xlarge": { vcpus: 8, gpus: 0, memoryGb: 32, usdPerHour: 0.4032 },
+    "m7i.4xlarge": { vcpus: 16, gpus: 0, memoryGb: 64, usdPerHour: 0.8064 },
+    "m7i.8xlarge": { vcpus: 32, gpus: 0, memoryGb: 128, usdPerHour: 1.6128 },
+    // Memory-optimized r7i (1:8)
+    "r7i.2xlarge": { vcpus: 8, gpus: 0, memoryGb: 64, usdPerHour: 0.5292 },
+    "r7i.4xlarge": { vcpus: 16, gpus: 0, memoryGb: 128, usdPerHour: 1.0584 },
+    "r7i.8xlarge": { vcpus: 32, gpus: 0, memoryGb: 256, usdPerHour: 2.1168 },
+    // Memory-optimized r8i (1:8, Intel Granite Rapids)
+    "r8i.2xlarge": { vcpus: 8, gpus: 0, memoryGb: 64, usdPerHour: 0.5557 },
+    "r8i.4xlarge": { vcpus: 16, gpus: 0, memoryGb: 128, usdPerHour: 1.1114 },
+    "r8i.8xlarge": { vcpus: 32, gpus: 0, memoryGb: 256, usdPerHour: 2.2227 },
+    "r8i.12xlarge": { vcpus: 48, gpus: 0, memoryGb: 384, usdPerHour: 3.3341 },
 };
 
 export function getInstanceSpec(instanceType: string): InstanceSpec | undefined {
@@ -165,4 +180,40 @@ export function checkVramFit(instanceType: string, nameOrRepo: string, quantizat
         kvBudgetGb,
         fits: usedGb + MIN_KV_CACHE_GB <= vramGb,
     };
+}
+
+// Memory consumed by the vLLM CPU process (torch runtime, model loading,
+// activations, page cache) before weights + KV cache.
+const CPU_RAM_OVERHEAD_GB = 12;
+
+export interface CpuRamFit {
+    paramsB: number;
+    weightsGb: number;
+    kvcacheGb: number;
+    memoryGb: number;
+    /** Estimated total RAM needed (weights + KV cache + runtime overhead). */
+    requiredGb: number;
+    fits: boolean;
+}
+
+/**
+ * Heuristic check of whether a model fits a CPU instance's RAM when served by
+ * vLLM's CPU build: weights + VLLM_CPU_KVCACHE_SPACE + runtime overhead.
+ * Returns undefined when the parameter count or instance memory is unknown.
+ */
+export function checkCpuRamFit(
+    instanceType: string,
+    nameOrRepo: string,
+    quantization?: string,
+    kvcacheGb = 16
+): CpuRamFit | undefined {
+    const paramsB = estimateParamsB(nameOrRepo);
+    const memoryGb = getInstanceSpec(instanceType)?.memoryGb;
+
+    if (paramsB === undefined || !memoryGb) return undefined;
+
+    const weightsGb = paramsB * bytesPerParam(quantization);
+    const requiredGb = weightsGb + kvcacheGb + CPU_RAM_OVERHEAD_GB;
+
+    return { paramsB, weightsGb, kvcacheGb, memoryGb, requiredGb, fits: requiredGb <= memoryGb };
 }

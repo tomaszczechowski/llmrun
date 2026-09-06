@@ -27,6 +27,9 @@ export interface TerraformVars {
     quantization?: string;
     tool_call_parser?: string;
     hf_token?: string;
+    vllm_cpu_image?: string;
+    vllm_cpu_kvcache_space?: number;
+    vllm_cpu_omp_threads_bind?: string;
 }
 
 function workspaceRoot(name: string): string {
@@ -133,6 +136,7 @@ export async function destroy(name: string, sel: AwsSelection): Promise<void> {
 export function isCapacityError(err: unknown): boolean {
     const captured = (err as any)?.captured ?? "";
     const message = (err as any)?.message ?? "";
+
     return (
         captured.includes("InsufficientInstanceCapacity") || message.includes("InsufficientInstanceCapacity")
     );

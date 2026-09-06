@@ -14,12 +14,22 @@ import { LlmrunError } from "./errors.js";
  *   3. ./llmrun.yaml           (project-local catalog, cwd)
  */
 
+const cpuVllmSchema = z
+    .object({
+        image: z.string().min(1).optional(), // CPU vLLM Docker image (default: vllm/vllm-openai-cpu:latest)
+        kvcache_space: z.number().int().positive().optional(), // VLLM_CPU_KVCACHE_SPACE, GiB (default: 16)
+        omp_threads_bind: z.string().optional(), // VLLM_CPU_OMP_THREADS_BIND, e.g. "0-31" (default: all vCPUs)
+    })
+    .strict();
+
 const cpuFallbackSchema = z
     .object({
         instance_type: z.string().min(1),
         engine: z.enum(["vllm", "ollama"]).default("ollama"),
         quantization: z.string().optional(),
         max_params: z.string().optional(), // e.g. "16B" — guard against oversized models on CPU
+        context_length: z.number().int().positive().optional(), // CPU-only override; large contexts eat RAM on CPU
+        vllm: cpuVllmSchema.optional(), // only used when engine: vllm
     })
     .strict();
 
@@ -57,6 +67,7 @@ const catalogSchema = z
     .strict();
 
 export type CpuFallback = z.infer<typeof cpuFallbackSchema>;
+export type CpuVllm = z.infer<typeof cpuVllmSchema>;
 export type Model = z.infer<typeof modelSchema>;
 export type CatalogDefaults = z.infer<typeof defaultsSchema>;
 export type Catalog = z.infer<typeof catalogSchema>;

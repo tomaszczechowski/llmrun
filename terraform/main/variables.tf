@@ -78,3 +78,21 @@ variable "hf_token" {
   default     = ""
   sensitive   = true
 }
+
+variable "vllm_cpu_image" {
+  description = "Docker image for the CPU vLLM container (engine=vllm, mode=cpu)."
+  type        = string
+  default     = "vllm/vllm-openai-cpu:latest"
+}
+
+variable "vllm_cpu_kvcache_space" {
+  description = "VLLM_CPU_KVCACHE_SPACE in GiB for the CPU vLLM container."
+  type        = number
+  default     = 16
+}
+
+variable "vllm_cpu_omp_threads_bind" {
+  description = "VLLM_CPU_OMP_THREADS_BIND for the CPU vLLM container; empty = pin to all vCPUs."
+  type        = string
+  default     = ""
+}
