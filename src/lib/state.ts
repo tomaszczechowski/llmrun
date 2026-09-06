@@ -24,6 +24,10 @@ const deploymentStateSchema = z.object({
     remotePort: z.number().default(8000),
     idleTimeout: z.string(),
     instanceId: z.string().optional(),
+    /** Stable per-deployment identity for the usage ledger (survives name reuse). */
+    deploymentId: z.string().optional(),
+    /** Last time the instance usage buffer was pulled into the ledger. */
+    lastFlushAt: z.string().optional(),
     createdAt: z.string(),
     /** Set while `llmrun up` is running; cleared once the instance ID is known. */
     provisioningAt: z.string().optional(),

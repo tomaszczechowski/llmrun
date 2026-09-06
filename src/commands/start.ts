@@ -4,6 +4,7 @@ import { resolveDeploymentName } from "../lib/select.js";
 import { assertPreflight } from "./doctor.js";
 import { startInstance, waitForInstanceState, waitForSsmOnline } from "../lib/aws.js";
 import { establishPortForward, isProcessAlive } from "../lib/ssm.js";
+import { flushInstanceUsage, reconcileLifecycle } from "../lib/history.js";
 import { waitForModelHealthy } from "../lib/health.js";
 import { LlmrunError } from "../lib/errors.js";
 import { heading, info, warn, keyValues, spinner, bold } from "../lib/ui.js";
@@ -42,6 +43,11 @@ export async function startCommand(flags: GlobalFlags, nameArg: string | undefin
     await waitForInstanceState(sel, state.instanceId, ["running"]);
     spin.succeed("Instance running");
 
+    // Open the new running window in the ledger (EC2 ground truth).
+    await reconcileLifecycle(sel, state).catch(() => {
+        // Best-effort — the next llmrun ls/stop/down reconciles.
+    });
+
     if (!isProcessAlive(state.forwardPid)) {
         const ssmSpin = spinner("Waiting for the SSM agent to register");
         const online = await waitForSsmOnline(sel, state.instanceId);
@@ -56,6 +62,16 @@ export async function startCommand(flags: GlobalFlags, nameArg: string | undefin
         ssmSpin.succeed("SSM agent online");
         const pid = await establishPortForward(sel, state);
         updateDeployment(name, { forwardPid: pid });
+    }
+
+    // Best-effort: pull usage lines the instance monitor has staged so far.
+    if (state.deploymentId) {
+        try {
+            await flushInstanceUsage(sel, state.instanceId, state.deploymentId);
+            updateDeployment(name, { lastFlushAt: new Date().toISOString() });
+        } catch {
+            // Instance may be briefly unreachable — the next lifecycle command pulls it.
+        }
     }
 
     const healthSpin = spinner(`Waiting for the model to be ready on localhost:${state.localPort}`);

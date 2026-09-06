@@ -1,4 +1,5 @@
 import { select, confirm } from "@inquirer/prompts";
+import { randomUUID } from "node:crypto";
 import { loadCatalogContext, type GlobalFlags } from "../lib/context.js";
 import { resolveBasePort } from "../lib/config.js";
 import { idleTimeoutFor, type Model } from "../lib/catalog.js";
@@ -7,10 +8,18 @@ import { assertPreflight } from "./doctor.js";
 import { checkGpuQuota } from "../lib/doctor.js";
 import { estimateCost, formatUsd, getInstanceSpec, checkVramFit } from "../lib/instances.js";
 import { allocateLocalPort } from "../lib/ports.js";
-import { uniqueDeploymentName, saveDeployment, updateDeployment, removeDeployment, type DeploymentState } from "../lib/state.js";
+import {
+    uniqueDeploymentName,
+    saveDeployment,
+    updateDeployment,
+    removeDeployment,
+    loadDeployment,
+    type DeploymentState,
+} from "../lib/state.js";
 import * as tf from "../lib/terraform.js";
 import { waitForInstanceState, waitForSsmOnline, getInstanceTypeAzs } from "../lib/aws.js";
 import { establishPortForward } from "../lib/ssm.js";
+import { flushInstanceUsage, reconcileLifecycle, appendEvent } from "../lib/history.js";
 import { waitForModelHealthy } from "../lib/health.js";
 import { heading, info, success, warn, error, keyValues, spinner, dim, cyan, bold, symbols } from "../lib/ui.js";
 
@@ -89,10 +98,12 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
         localPort,
         remotePort: 8000,
         idleTimeout,
+        deploymentId: randomUUID(),
         createdAt: new Date().toISOString(),
         provisioningAt: new Date().toISOString(),
     };
     saveDeployment(state);
+    const deploymentId = state.deploymentId!;
 
     heading(`Provisioning "${name}"`);
     info(
@@ -103,6 +114,7 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
     // guaranteed, but we can skip AZs that never have it and show the plan).
     const azCheckSpin = spinner(`Checking availability zones for ${target.instanceType}`);
     const offeredAzs = await getInstanceTypeAzs(sel, target.instanceType);
+
     if (offeredAzs.length === 0) {
         azCheckSpin.warn(`Could not determine AZ availability — will try the region default.`);
     } else {
@@ -188,9 +200,34 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
     updateDeployment(name, { instanceId: out.instance_id, provisioningAt: undefined });
     success(`Instance ${cyan(out.instance_id)} created`);
 
+    // Open the deployment's record in the durable usage ledger.
+    appendEvent({
+        t: "up",
+        id: deploymentId,
+        ts: new Date().toISOString(),
+        name,
+        alias: model.alias,
+        hfRepo: model.hf_repo,
+        instanceId: out.instance_id,
+        instanceType: target.instanceType,
+        engine: target.engine,
+        mode: target.mode,
+        region: sel.region,
+        diskGb: model.disk_gb,
+        contextLength: model.context_length,
+        quantization: target.quantization,
+        toolCallParser: model.tool_call_parser,
+        usdPerHour: estimateCost(target.instanceType)?.usdPerHour ?? 0,
+    });
+
     const runSpin = spinner("Waiting for the instance to reach 'running'");
     await waitForInstanceState(sel, out.instance_id, ["running"]);
     runSpin.succeed("Instance running");
+
+    // Record the running window in the ledger (EC2 ground truth).
+    await reconcileLifecycle(sel, loadDeployment(name)).catch(() => {
+        // Best-effort — the next llmrun ls/stop/down reconciles.
+    });
 
     // The SSM agent registers a little after "running"; wait before forwarding.
     const ssmSpin = spinner("Waiting for the SSM agent to register");
@@ -209,7 +246,8 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
     const forwardPid = await establishPortForward(sel, { ...state, instanceId: out.instance_id });
     updateDeployment(name, { forwardPid });
 
-    info(`To follow progress in another terminal: ${dim(`llmrun logs ${name}`)}`);
+    info(`To follow progress in another terminal: ${cyan(`llmrun logs ${name}`)}`);
+
     const healthSpin = spinner(
         `Waiting for the model to be ready on localhost:${localPort} (first boot downloads the model — this can take several minutes)`
     );
@@ -224,6 +262,14 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
             "A common cause is the model not fitting the GPU (vLLM CUDA out-of-memory, crash-looping). " +
                 "If so, use a larger instance or a quantized model."
         );
+    }
+
+    // Best-effort: pull usage lines the instance monitor has staged so far.
+    try {
+        await flushInstanceUsage(sel, out.instance_id, deploymentId);
+        updateDeployment(name, { lastFlushAt: new Date().toISOString() });
+    } catch {
+        // Instance may be briefly unreachable — the next lifecycle command pulls it.
     }
 
     heading(`"${name}" is up`);
@@ -324,6 +370,7 @@ async function previewCostAndConfirm(model: Model, target: ResolvedTarget, autoY
         if (fit && !fit.fits) {
             console.log("");
             const kvBudget = Math.max(fit.kvBudgetGb, 0);
+
             if (kvBudget < 0.5) {
                 // Weights barely fit or overflow — almost no KV cache headroom.
                 warn(

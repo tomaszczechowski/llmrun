@@ -51,3 +51,8 @@ export function deploymentDir(name: string): string {
 export function globalConfigPath(): string {
     return path.join(homeDir(), "config.json");
 }
+
+/** Durable usage ledger: `~/.llmrun/history.jsonl` (append-only, survives `down`). */
+export function historyFile(): string {
+    return path.join(homeDir(), "history.jsonl");
+}

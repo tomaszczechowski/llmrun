@@ -8,7 +8,7 @@ import {
     type InstanceStateName,
 } from "@aws-sdk/client-ec2";
 import { ServiceQuotasClient, GetServiceQuotaCommand } from "@aws-sdk/client-service-quotas";
-import { SSMClient, DescribeInstanceInformationCommand } from "@aws-sdk/client-ssm";
+import { SSMClient, DescribeInstanceInformationCommand, SendCommandCommand, GetCommandInvocationCommand } from "@aws-sdk/client-ssm";
 import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
 import type { AwsSelection } from "./config.js";
 import { LlmrunError } from "./errors.js";
@@ -47,6 +47,49 @@ export async function isSsmOnline(sel: AwsSelection, instanceId: string): Promis
 }
 
 /**
+ * Run a one-shot shell command on an instance via SSM (SDK) and return its
+ * trimmed standard output. Returns undefined when the command never succeeded
+ * (instance offline, SSM error, timeout). Output is capped by AWS at 4 KB —
+ * callers needing more must transfer in chunks.
+ */
+export async function runSsmCommand(sel: AwsSelection, instanceId: string, commands: string[], timeoutSec = 60): Promise<string | undefined> {
+    let commandId: string | undefined;
+    try {
+        const sent = await ssmClient(sel).send(
+            new SendCommandCommand({
+                InstanceIds: [instanceId],
+                DocumentName: "AWS-RunShellScript",
+                Parameters: { commands },
+                TimeoutSeconds: timeoutSec,
+            })
+        );
+        commandId = sent.Command?.CommandId;
+    } catch {
+        return undefined;
+    }
+    if (!commandId) return undefined;
+
+    const client = ssmClient(sel);
+    const deadline = Date.now() + (timeoutSec + 15) * 1000;
+    while (Date.now() < deadline) {
+        try {
+            const inv = await client.send(new GetCommandInvocationCommand({ CommandId: commandId, InstanceId: instanceId }));
+            // The typed Status union omits terminal states in this SDK build — widen it.
+            const status = (inv.Status ?? "Pending") as string;
+
+            if (status === "Success") return inv.StandardOutputContent?.trim() ? inv.StandardOutputContent : "";
+            if (status === "Failed" || status === "TimedOut" || status === "Cancelled" || status === "Error" || status === "Invalid") {
+                return undefined;
+            }
+        } catch {
+            // Transient API error — keep polling until the deadline.
+        }
+        await new Promise((r) => setTimeout(r, 1_500));
+    }
+    return undefined;
+}
+
+/**
  * Wait until the instance is registered with SSM (PingStatus=Online). This must
  * happen before port-forwarding/shell/logs work — the agent takes a short while
  * to register after the instance reaches "running".
@@ -77,6 +120,8 @@ export interface InstanceInfo {
     instanceType?: string;
     privateIp?: string;
     publicIp?: string;
+    /** Start time of the current running window (ground truth for cost tracking). */
+    startTime?: string;
 }
 
 export async function describeInstance(sel: AwsSelection, instanceId: string): Promise<InstanceInfo | undefined> {
@@ -92,6 +137,7 @@ export async function describeInstance(sel: AwsSelection, instanceId: string): P
         instanceType: inst.InstanceType,
         privateIp: inst.PrivateIpAddress,
         publicIp: inst.PublicIpAddress,
+        startTime: inst.LaunchTime ? inst.LaunchTime.toISOString() : undefined,
     };
 }
 
@@ -211,6 +257,7 @@ export async function getInstanceTypeAzs(sel: AwsSelection, instanceType: string
         const res = await client.send(
             new DescribeAvailabilityZonesCommand({ Filters: [{ Name: "state", Values: ["available"] }] })
         );
+
         return (res.AvailabilityZones ?? [])
             .map((z) => z.ZoneName ?? "")
             .filter(Boolean)

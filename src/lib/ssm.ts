@@ -1,7 +1,7 @@
 import { openSync } from "node:fs";
 import path from "node:path";
 import net from "node:net";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { execa } from "execa";
 import { deploymentDir } from "./paths.js";
 import type { AwsSelection } from "./config.js";
@@ -125,6 +125,29 @@ export async function openShell(sel: AwsSelection, instanceId: string): Promise<
         stdio: "inherit",
         reject: false,
     });
+}
+
+/**
+ * Spawn a non-interactive SSM command session whose output is piped (rather
+ * than attached to the terminal), for streaming to an API client. The caller
+ * owns the child: read its stdout/stderr and kill it when done.
+ */
+export function spawnCommandStream(sel: AwsSelection, instanceId: string, command: string): ChildProcess {
+    return spawn(
+        "aws",
+        [
+            "ssm",
+            "start-session",
+            "--target",
+            instanceId,
+            "--document-name",
+            "AWS-StartInteractiveCommand",
+            "--parameters",
+            `command=${command}`,
+            ...awsFlags(sel),
+        ],
+        { stdio: ["ignore", "pipe", "pipe"] }
+    );
 }
 
 /** Tail a systemd unit's logs over an interactive SSM command session. */

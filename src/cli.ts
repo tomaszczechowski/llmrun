@@ -24,6 +24,7 @@ import { disconnectCommand } from "./commands/disconnect.js";
 import { sshCommand } from "./commands/ssh.js";
 import { logsCommand } from "./commands/logs.js";
 import { configCommand } from "./commands/config.js";
+import { studioCommand } from "./commands/studio.js";
 
 const program = new Command();
 
@@ -151,6 +152,18 @@ inGroup(
         .option("-y, --yes", "skip the confirmation prompt")
         .action(async (name, opts, cmd) => {
             await downCommand(globals(cmd), name, { yes: opts.yes });
+        }),
+    "Basic"
+);
+
+inGroup(
+    program
+        .command("studio")
+        .description("Open the local dashboard (overview, live metrics, logs) at 127.0.0.1")
+        .option("--port <port>", "port for the studio bridge (overrides studio_port)", (v) => parseInt(v, 10))
+        .option("--no-browser", "don't open a browser automatically")
+        .action(async (opts, cmd) => {
+            await studioCommand(globals(cmd), { port: opts.port, browser: opts.browser });
         }),
     "Basic"
 );

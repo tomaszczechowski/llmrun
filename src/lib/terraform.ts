@@ -133,6 +133,7 @@ export async function destroy(name: string, sel: AwsSelection): Promise<void> {
 export function isCapacityError(err: unknown): boolean {
     const captured = (err as any)?.captured ?? "";
     const message = (err as any)?.message ?? "";
+
     return (
         captured.includes("InsufficientInstanceCapacity") || message.includes("InsufficientInstanceCapacity")
     );

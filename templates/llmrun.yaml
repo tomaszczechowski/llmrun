@@ -30,7 +30,8 @@ models:
       hf_repo: Qwen/Qwen2.5-7B-Instruct # ungated (no HF token needed); ~14 GB fp16
       instance_type: g6.xlarge # 1× NVIDIA L4 (24 GB)
       disk_gb: 100
-      context_length: 8192
+      context_length: 16384
+      tool_call_parser: hermes
       # For gated repos (e.g. meta-llama/*), set the env var holding your HF token:
       # hf_token_env: HF_TOKEN
       # Optional CPU fallback used when GPU quota is unavailable (much slower):

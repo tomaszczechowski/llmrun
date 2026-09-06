@@ -14,6 +14,7 @@ const globalConfigSchema = z
         profile: z.string().optional(),
         region: z.string().optional(),
         base_port: z.number().int().min(1024).max(65535).optional(),
+        studio_port: z.number().int().min(1024).max(65535).optional(),
         idle_timeout: z.string().optional(),
         state_backend: z.enum(["local"]).default("local"),
     })

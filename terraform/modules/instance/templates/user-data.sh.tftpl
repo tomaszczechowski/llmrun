@@ -98,8 +98,10 @@ fi
 
 # --- Idle monitor: stop the instance after inactivity -------------------------
 # Uses vLLM's /metrics when available, otherwise falls back to counting active
-# connections. Stops the instance via `poweroff` (the instance's shutdown
-# behavior is "stop", so the disk + model cache are preserved).
+# connections. Also stages usage counters to /var/lib/llmrun/usage.jsonl every
+# tick (pulled into the local ledger by `llmrun stop/start/status/down`). Stops
+# the instance via `poweroff` (the instance's shutdown behavior is "stop", so
+# the disk + model cache are preserved).
 cat >/opt/llmrun/idle-monitor.sh <<'MONITOR'
 #!/usr/bin/env bash
 set -uo pipefail
@@ -107,13 +109,60 @@ IDLE_SECONDS="__IDLE_SECONDS__"
 PORT="__REMOTE_PORT__"
 STATE=/var/lib/llmrun/last_active
 PREV=/var/lib/llmrun/prev_total
+USAGE=/var/lib/llmrun/usage.jsonl
+PFILE=/var/lib/llmrun/prompt_cum
+GFILE=/var/lib/llmrun/gen_cum
+RFILE=/var/lib/llmrun/reqs_cum
+AFILE=/var/lib/llmrun/active_cum
+PTICK=/var/lib/llmrun/last_tick
+PBASE=/var/lib/llmrun/prompt_base
+GBASE=/var/lib/llmrun/gen_base
+RBASE=/var/lib/llmrun/reqs_base
+RRESET=/var/lib/llmrun/resets_cum
+
 now=$(date +%s)
+boot=$(date -d "$(uptime -s 2>/dev/null)" +%s 2>/dev/null || echo "")
+case "$boot" in ""|*[!0-9]*) boot=$now ;; esac
+lasttick=$(cat "$PTICK" 2>/dev/null || echo "")
+case "$lasttick" in ""|*[!0-9]*) lasttick=$boot ;; esac
+if [ "$lasttick" -lt "$boot" ]; then lasttick=$boot; fi
+echo "$now" > "$PTICK"
+elapsed=$(( now - lasttick ))
+if [ "$elapsed" -lt 0 ]; then elapsed=0; fi
+if [ "$elapsed" -gt 600 ]; then elapsed=600; fi
 [ -f "$STATE" ] || echo "$now" > "$STATE"
+
+# Fold a raw counter ($3) into the cumulative in $1 (baseline in $2). vLLM
+# counters reset to zero on container restart; when the raw value drops, the
+# baseline restarts at 0 so the cumulative stays monotone across restarts.
+bump() {
+  local cf=$1 bf=$2 raw=$3
+  local cum base
+  case "$raw" in ""|*[!0-9]*) raw=0 ;; esac
+  cum=$(cat "$cf" 2>/dev/null || echo "")
+  base=$(cat "$bf" 2>/dev/null || echo "")
+  case "$cum" in ""|*[!0-9]*)
+    echo "$raw" > "$cf"; echo "$raw" > "$bf"; echo "$raw"; return ;;
+  esac
+  case "$base" in ""|*[!0-9]*) base=0 ;; esac
+  if [ "$raw" -lt "$base" ]; then
+    echo "$(( $(cat "$RRESET" 2>/dev/null || echo 0) + 1 ))" > "$RRESET"
+    cum=$(( cum + raw ))
+    echo "$cum" > "$cf"; echo 0 > "$bf"; echo "$cum"; return
+  fi
+  cum=$(( cum + raw - base ))
+  echo "$cum" > "$cf"; echo "$raw" > "$bf"; echo "$cum"
+}
 
 active=false
 metrics=$(curl -s --max-time 3 "http://localhost:$PORT/metrics" || true)
+prompt=0
+gen=0
+total=0
 if [ -n "$metrics" ]; then
   running=$(echo "$metrics" | awk '/^vllm:num_requests_running/ {if ($2+0 > 0) f=1} END{print f+0}')
+  prompt=$(echo "$metrics" | awk '/^vllm:prompt_tokens_total/ {s+=$2} END{printf "%.0f", s+0}')
+  gen=$(echo "$metrics" | awk '/^vllm:generation_tokens_total/ {s+=$2} END{printf "%.0f", s+0}')
   total=$(echo "$metrics" | awk '/^vllm:request_success_total/ {sum+=$2} END{printf "%.0f", sum+0}')
   prev=$(cat "$PREV" 2>/dev/null || echo "-1")
   echo "$total" > "$PREV"
@@ -125,11 +174,21 @@ fi
 
 if [ "$active" = "true" ]; then
   echo "$now" > "$STATE"
-  exit 0
 fi
 
+# --- Usage staging: one line per tick; cumulative counters survive stop/start --
+np=$(bump "$PFILE" "$PBASE" "$prompt")
+ng=$(bump "$GFILE" "$GBASE" "$gen")
+nr=$(bump "$RFILE" "$RBASE" "$total")
+na=$(cat "$AFILE" 2>/dev/null || echo 0)
+case "$na" in ""|*[!0-9]*) na=0 ;; esac
+if [ "$active" = "true" ]; then na=$(( na + elapsed )); fi
+echo "$na" > "$AFILE"
+printf '{"ts":%d,"run":%d,"act":%d,"p":%d,"g":%d,"r":%d,"rst":%d}\n' \
+  "$now" "$elapsed" "$na" "$np" "$ng" "$nr" "$(cat "$RRESET" 2>/dev/null || echo 0)" >> "$USAGE"
+
 last=$(cat "$STATE")
-if [ $(( now - last )) -ge "$IDLE_SECONDS" ]; then
+if [ "$active" = "false" ] && [ $(( now - last )) -ge "$IDLE_SECONDS" ]; then
   logger -t llmrun "idle for >= $IDLE_SECONDS s; stopping instance"
   /sbin/poweroff
 fi
