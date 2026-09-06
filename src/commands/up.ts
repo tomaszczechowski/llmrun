@@ -209,7 +209,7 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
     const forwardPid = await establishPortForward(sel, { ...state, instanceId: out.instance_id });
     updateDeployment(name, { forwardPid });
 
-    info(`To follow progress in another terminal: ${dim(`llmrun logs ${name}`)}`);
+    info(`To follow progress in another terminal: ${cyan(`llmrun logs ${name}`)}`);
     const healthSpin = spinner(
         `Waiting for the model to be ready on localhost:${localPort} (first boot downloads the model — this can take several minutes)`
     );
