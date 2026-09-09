@@ -52,6 +52,13 @@ The first draft used `NPROC=$$(nproc)` / `LAST=$$$((NPROC - 1))`, which rendered
 - Render test: scratch module calling `templatefile()` with all vars, for all three branches (vllm+cpu, vllm+gpu, ollama+cpu); all outputs pass `bash -n`
 - CPU render spot-check: `--device cpu`, `vllm/vllm-openai-cpu:latest`, `VLLM_CPU_KVCACHE_SPACE="16"`, `OMP_BIND` pinned to `0-31`, zero `--gpus`/`--gpu-memory-utilization` in the vllm+cpu branch
 
+## Idle-Monitor Stale-Timestamp Bug (2026-09-09, fixed — not yet committed)
+
+- Symptom: `llmrun start qwen-3.8-27B-awq-g6` (the live-tested CPU deployment) restarted the `r8i.8xlarge`, SSM + port-forward came up, then "Model did not become healthy in time" — the instance self-powered-off ~5 min after boot (`StateReason: Client.InstanceInitiatedShutdown`; SSM session died ~10 min after `LaunchTime`).
+- Root cause: the idle monitor's `last_active` file (`/var/lib/llmrun/last_active`) persists on the root EBS across stop/start. At boot, the first timer tick (OnBootSec=5min) compared `now - last` — where `last` was from the previous boot's session — against `IDLE_SECONDS`; a pre-boot timestamp always exceeds the timeout, so a restarted instance powered itself off before vLLM could load the model.
+- Fix (`user-data.sh.tftpl`): clamp `last` to the current boot time (`boot` was already computed for the usage ledger's `lasttick` boundary), mirroring that existing pattern. A fresh boot now starts a fresh idle window; legitimate idle-stop within a boot is unchanged. Verified with a rendered-template simulation: stale pre-boot timestamp → stays up; 2h idle this boot → powers off; first boot (no state file) → stays up.
+- Note: the monitor is baked into `/opt/llmrun/idle-monitor.sh` at first boot, so existing instances need re-provisioning (`llmrun down` + `llmrun up`) to pick up the fix.
+
 ## Follow-ups
 
 - Primary (non-fallback) CPU model entries still impossible: `resolveTarget()` hardcodes `mode: "gpu"` for the main target. Intentional for now; a `mode: cpu` model field would be the natural extension if CPU becomes a first-class production backend.

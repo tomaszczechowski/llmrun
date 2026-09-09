@@ -228,7 +228,12 @@ echo "$na" > "$AFILE"
 printf '{"ts":%d,"run":%d,"act":%d,"p":%d,"g":%d,"r":%d,"rst":%d}\n' \
   "$now" "$elapsed" "$na" "$np" "$ng" "$nr" "$(cat "$RRESET" 2>/dev/null || echo 0)" >> "$USAGE"
 
-last=$(cat "$STATE")
+last=$(cat "$STATE" 2>/dev/null || echo "$boot")
+case "$last" in ""|*[!0-9]*) last=$boot ;; esac
+# A fresh boot starts a fresh idle window: `last_active` persists on the root
+# volume across stop/start, and a pre-boot timestamp would otherwise power the
+# instance off minutes after boot, before the model finishes loading.
+if [ "$last" -lt "$boot" ]; then last=$boot; fi
 if [ "$active" = "false" ] && [ $(( now - last )) -ge "$IDLE_SECONDS" ]; then
   logger -t llmrun "idle for >= $IDLE_SECONDS s; stopping instance"
   /sbin/poweroff

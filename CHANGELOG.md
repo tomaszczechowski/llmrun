@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Idle auto-stop no longer powers off a restarted instance minutes after boot. The `last_active` timestamp persists on the root volume across stop/start, so the first monitor tick after boot compared it against the idle timeout and stopped the instance before the model finished loading (this made `llmrun start` report "Model did not become healthy in time"). The idle window now resets to the boot time. Requires re-provisioning (`llmrun down` + `llmrun up`) since the monitor is baked in at first boot.
+
 ## [1.0.6] - 2026-09-09
 
 ### Fixed
