@@ -105,16 +105,20 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
 
     // Pre-check: find AZs that offer this instance type (capacity is not
     // guaranteed, but we can skip AZs that never have it and show the plan).
+    // An empty result means the type is not offered in this region — applying
+    // Terraform would just fail with "unsupported configuration", so bail out
+    // here instead of burning ~4 minutes per AZ.
     const azCheckSpin = spinner(`Checking availability zones for ${target.instanceType}`);
     const offeredAzs = await getInstanceTypeAzs(sel, target.instanceType);
 
     if (offeredAzs.length === 0) {
-        azCheckSpin.warn(`Could not determine AZ availability — will try the region default.`);
-    } else {
-        azCheckSpin.succeed(
-            `${target.instanceType} offered in: ${offeredAzs.join(", ")} — will try each if needed`
+        azCheckSpin.fail(`Could not determine AZ availability for ${target.instanceType}`);
+        throw new LlmrunError(
+            `${target.instanceType} is not offered in ${sel.region}.`,
+            "Choose another AWS region or instance type."
         );
     }
+    azCheckSpin.succeed(`${target.instanceType} offered in: ${offeredAzs.join(", ")} — will try each if needed`);
 
     const vars: tf.TerraformVars = {
         name,

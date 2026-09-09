@@ -184,7 +184,11 @@ export function quotaConsoleUrl(region: string | undefined, quotaCode: string): 
  * the type exists, but not whether capacity is available right now. It's a
  * cheap pre-flight that eliminates AZs that never have the instance.
  *
- * Falls back to all available AZs in the region if the API call fails.
+ * An empty (but valid) response is returned as-is: it means the type is not
+ * offered in this region, and falling back to all AZs would only cause a
+ * guaranteed "unsupported configuration" failure later. The AZ-list fallback
+ * is used only when DescribeInstanceTypeOfferings itself errors (transient
+ * API failure, where "empty" would be a false negative).
  */
 export async function getInstanceTypeAzs(sel: AwsSelection, instanceType: string): Promise<string[]> {
     const client = ec2Client(sel);
@@ -196,27 +200,27 @@ export async function getInstanceTypeAzs(sel: AwsSelection, instanceType: string
                 Filters: [{ Name: "instance-type", Values: [instanceType] }],
             })
         );
-        const azs = (res.InstanceTypeOfferings ?? [])
+
+        return (res.InstanceTypeOfferings ?? [])
             .map((o) => o.Location ?? "")
-            .filter(Boolean)
-            .sort();
-
-        if (azs.length > 0) return azs.slice(0, 3);
-    } catch {
-        // Fall through to the AZ list fallback below.
-    }
-
-    // Fallback: return all available AZs in the region (sorted, max 3).
-    try {
-        const res = await client.send(
-            new DescribeAvailabilityZonesCommand({ Filters: [{ Name: "state", Values: ["available"] }] })
-        );
-        return (res.AvailabilityZones ?? [])
-            .map((z) => z.ZoneName ?? "")
             .filter(Boolean)
             .sort()
             .slice(0, 3);
     } catch {
-        return [];
+        // Offerings API failed (not "not offered") — fall back to all
+        // available AZs in the region (sorted, max 3).
+        try {
+            const res = await client.send(
+                new DescribeAvailabilityZonesCommand({ Filters: [{ Name: "state", Values: ["available"] }] })
+            );
+
+            return (res.AvailabilityZones ?? [])
+                .map((z) => z.ZoneName ?? "")
+                .filter(Boolean)
+                .sort()
+                .slice(0, 3);
+        } catch {
+            return [];
+        }
     }
 }
