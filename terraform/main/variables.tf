@@ -80,9 +80,9 @@ variable "hf_token" {
 }
 
 variable "vllm_cpu_image" {
-  description = "Docker image for the CPU vLLM container (engine=vllm, mode=cpu)."
+  description = "Docker image for the CPU vLLM container (engine=vllm, mode=cpu). Pinned by default — :latest is intentionally not used."
   type        = string
-  default     = "vllm/vllm-openai-cpu:latest"
+  default     = "vllm/vllm-openai-cpu:v0.28.0"
 }
 
 variable "vllm_cpu_kvcache_space" {

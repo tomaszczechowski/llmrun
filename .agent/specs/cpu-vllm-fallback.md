@@ -55,6 +55,7 @@ The first draft used `NPROC=$$(nproc)` / `LAST=$$$((NPROC - 1))`, which rendered
 ## Follow-ups
 
 - Primary (non-fallback) CPU model entries still impossible: `resolveTarget()` hardcodes `mode: "gpu"` for the main target. Intentional for now; a `mode: cpu` model field would be the natural extension if CPU becomes a first-class production backend.
+- Default CPU image pinned to `vllm/vllm-openai-cpu:v0.28.0` (2026-09-09) — the exact release live-tested above (vLLM 0.28.0). `:latest` is intentionally no longer the default: a future untested pull could silently change model behavior (quantized models first). The GPU path (`vllm/vllm-openai:latest` in `user-data.sh.tftpl`) is still unpinned — same reasoning applies.
 - Nothing committed yet.
 
 ## Live Test Results (2026-09-06)

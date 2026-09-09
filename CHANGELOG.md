@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- CPU vLLM default image pinned to `vllm/vllm-openai-cpu:v0.28.0` (the release verified live with the AWQ INT4 model). `:latest` is no longer the default — an untested future pull could silently change model behavior (especially for quantized models). Override with `cpu_fallback.vllm.image` only after testing the version.
+
 ### Added
 
 - CPU vLLM fallback: `cpu_fallback` now supports `engine: vllm`, which provisions a CPU-only instance running the official `vllm/vllm-openai-cpu` image (CPU platform is auto-detected — no device flags), with `--ipc=host`, `VLLM_CPU_KVCACHE_SPACE`, and `VLLM_CPU_OMP_THREADS_BIND` tuning.

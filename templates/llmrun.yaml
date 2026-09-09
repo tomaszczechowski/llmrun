@@ -45,7 +45,7 @@ models:
       #                                  # model's config.json — a mismatched value crashes
       #     context_length: 32768         # CPU-only override — keep small (KV cache is in RAM)
       #     vllm:
-      #         image: vllm/vllm-openai-cpu:latest  # optional override
+      #         image: vllm/vllm-openai-cpu:v0.28.0   # optional override (pinned by default; :latest intentionally not used)
       #         kvcache_space: 16                   # VLLM_CPU_KVCACHE_SPACE, GiB (default 16)
       #         omp_threads_bind: "0-31"            # VLLM_CPU_OMP_THREADS_BIND (default: all vCPUs)
 

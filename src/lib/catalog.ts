@@ -16,7 +16,7 @@ import { LlmrunError } from "./errors.js";
 
 const cpuVllmSchema = z
     .object({
-        image: z.string().min(1).optional(), // CPU vLLM Docker image (default: vllm/vllm-openai-cpu:latest)
+        image: z.string().min(1).optional(), // CPU vLLM Docker image (default: vllm/vllm-openai-cpu:v0.28.0, pinned)
         kvcache_space: z.number().int().positive().optional(), // VLLM_CPU_KVCACHE_SPACE, GiB (default: 16)
         omp_threads_bind: z.string().optional(), // VLLM_CPU_OMP_THREADS_BIND, e.g. "0-31" (default: all vCPUs)
     })
