@@ -34,11 +34,20 @@ models:
       tool_call_parser: hermes
       # For gated repos (e.g. meta-llama/*), set the env var holding your HF token:
       # hf_token_env: HF_TOKEN
-      # Optional CPU fallback used when GPU quota is unavailable (much slower):
+      # Optional CPU fallback used when GPU quota is unavailable.
+      # engine: ollama → GGUF-style CPU inference, much slower (dev/testing only).
+      # engine: vllm   → vLLM CPU build (official vllm/vllm-openai-cpu image), with tuning:
       # cpu_fallback:
-      #     instance_type: c7i.4xlarge
-      #     engine: ollama
-      #     max_params: 16B
+      #     instance_type: r8i.8xlarge    # 32 vCPU / 256 GB RAM
+      #     engine: vllm
+      #     max_params: 32B
+      #     # quantization: awq          # leave unset: vLLM auto-detects from the
+      #                                  # model's config.json — a mismatched value crashes
+      #     context_length: 32768         # CPU-only override — keep small (KV cache is in RAM)
+      #     vllm:
+      #         image: vllm/vllm-openai-cpu:v0.28.0   # optional override (pinned by default; :latest intentionally not used)
+      #         kvcache_space: 16                   # VLLM_CPU_KVCACHE_SPACE, GiB (default 16)
+      #         omp_threads_bind: "0-31"            # VLLM_CPU_OMP_THREADS_BIND (default: all vCPUs)
 
     - alias: qwen-3.8-27B-awq
       hf_repo: cyankiwi/Qwen3.8-27B-AWQ-INT4

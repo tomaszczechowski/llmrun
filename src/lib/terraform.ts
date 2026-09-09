@@ -27,6 +27,9 @@ export interface TerraformVars {
     quantization?: string;
     tool_call_parser?: string;
     hf_token?: string;
+    vllm_cpu_image?: string;
+    vllm_cpu_kvcache_space?: number;
+    vllm_cpu_omp_threads_bind?: string;
 }
 
 function workspaceRoot(name: string): string {

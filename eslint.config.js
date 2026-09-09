@@ -8,6 +8,7 @@ export default [
             "node_modules",
             "**/node_modules",
             "**/dist",
+            "**/dist-old",
             "docs",
             "docs/**",
             ".pnpm-store",

@@ -59,6 +59,7 @@ These fields are defined under `models:` and control per-deployment behavior.
 | `tool_call_parser`  | —       | vLLM `--tool-call-parser` for tool/function calling. Values: `qwen3_xml`, `hermes`, `glm`, … — must match the model family |
 | `hf_token_env`      | —       | Environment variable holding HF token (for gated/private repos) |
 | `idle_timeout`      | —       | Per-model override of global `idle_timeout`. Formats: `30m`, `1h` |
+| `cpu_fallback`      | —       | CPU fallback block (`instance_type`, `engine: ollama\|vllm`, `quantization`, `max_params`, `context_length`, `vllm` tuning) — used when GPU quota is unavailable; see [Model Catalog](./model-catalog.mdx#cpu-fallback) |
 
 ## Resolution order
 

@@ -51,5 +51,8 @@ module "instance" {
     quantization         = var.quantization
     tool_call_parser     = var.tool_call_parser
     hf_token             = var.hf_token
+    vllm_cpu_image       = var.vllm_cpu_image
+    vllm_cpu_kvcache_space     = var.vllm_cpu_kvcache_space
+    vllm_cpu_omp_threads_bind  = var.vllm_cpu_omp_threads_bind
     tags                 = local.common_tags
 }

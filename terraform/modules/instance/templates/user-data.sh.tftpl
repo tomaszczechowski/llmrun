@@ -37,7 +37,7 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 # --- Model server systemd unit -----------------------------------------------
-if [ "$${ENGINE}" = "vllm" ]; then
+if [ "$${ENGINE}" = "vllm" ] && [ "$${MODE}" = "gpu" ]; then
   EXTRA_ARGS="--gpu-memory-utilization 0.95"
   if [ "$${CONTEXT_LENGTH}" != "0" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --max-model-len $${CONTEXT_LENGTH}"; fi
   if [ -n "$${QUANTIZATION}" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --quantization $${QUANTIZATION}"; fi
@@ -64,6 +64,47 @@ ExecStart=/usr/bin/docker run --rm --name llmrun-server --gpus all \
   -e HUGGING_FACE_HUB_TOKEN=$${HF_TOKEN} \
   -v /opt/llmrun/hf-cache:/root/.cache/huggingface \
   vllm/vllm-openai:latest \
+  $${HF_REPO} --host 0.0.0.0 --port 8000 $${EXTRA_ARGS}
+ExecStop=/usr/bin/docker stop llmrun-server
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+elif [ "$${ENGINE}" = "vllm" ] && [ "$${MODE}" = "cpu" ]; then
+  # CPU vLLM: official CPU image, no GPU flags and no --device flag (the CPU-only
+  # build auto-detects the CPU platform; a device ID on the CPU platform crashes
+  # vLLM, which expects integer control IDs). KV cache size and thread binding
+  # come from the VLLM_CPU_* knobs (cpu_fallback.vllm in llmrun.yaml).
+  EXTRA_ARGS=""
+  if [ "$${CONTEXT_LENGTH}" != "0" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --max-model-len $${CONTEXT_LENGTH}"; fi
+  if [ -n "$${QUANTIZATION}" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --quantization $${QUANTIZATION}"; fi
+  if [ -n "$${TOOL_CALL_PARSER}" ]; then EXTRA_ARGS="$${EXTRA_ARGS} --enable-auto-tool-choice --tool-call-parser $${TOOL_CALL_PARSER}"; fi
+
+  # Pin OMP threads to all vCPUs by default; overridable via vllm_cpu_omp_threads_bind.
+  NPROC=$(nproc)
+  LAST=$((NPROC - 1))
+  OMP_BIND="${vllm_cpu_omp_threads_bind}"
+  if [ -z "$${OMP_BIND}" ]; then OMP_BIND="0-$${LAST}"; fi
+
+  cat >/etc/systemd/system/llmrun-server.service <<UNIT
+[Unit]
+Description=llmrun model server (vLLM, CPU)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker rm -f llmrun-server
+ExecStart=/usr/bin/docker run --rm --name llmrun-server --ipc=host --security-opt seccomp=unconfined --cap-add SYS_NICE \
+  -p $${REMOTE_PORT}:8000 \
+  -e HUGGING_FACE_HUB_TOKEN=$${HF_TOKEN} \
+  -e VLLM_CPU_KVCACHE_SPACE="${vllm_cpu_kvcache_space}" \
+  -e VLLM_CPU_OMP_THREADS_BIND="$${OMP_BIND}" \
+  -v /opt/llmrun/hf-cache:/root/.cache/huggingface \
+  ${vllm_cpu_image} \
   $${HF_REPO} --host 0.0.0.0 --port 8000 $${EXTRA_ARGS}
 ExecStop=/usr/bin/docker stop llmrun-server
 

@@ -95,7 +95,10 @@ Check the [vLLM tool calling docs](https://docs.vllm.ai/en/latest/features/tool_
 
 ## CPU fallback
 
-For small models, you can define a CPU fallback that runs via Ollama when GPU quota is unavailable:
+When GPU quota is unavailable, a model can define a CPU fallback. `llmrun up` checks the GPU vCPU quota before provisioning and offers the fallback interactively if the quota is insufficient. Two engines are supported:
+
+- `ollama` — GGUF-style CPU inference; much slower, for functional dev/testing.
+- `vllm` — vLLM's CPU build (official `vllm/vllm-openai-cpu` image) serving the HuggingFace repo directly. Slower than GPU, but a full OpenAI-compatible server with tuning knobs.
 
 ```yaml
 - alias: fast-7b
@@ -103,12 +106,33 @@ For small models, you can define a CPU fallback that runs via Ollama when GPU qu
   instance_type: g6.xlarge
   disk_gb: 100
   cpu_fallback:
-      instance_type: c7i.4xlarge
-      engine: ollama
-      max_params: 16B
+      instance_type: r8i.8xlarge      # 32 vCPU / 256 GB RAM
+      engine: vllm                    # or: ollama
+      # quantization: awq             # rarely needed — vLLM auto-detects from the
+                                      # model's config.json; a mismatched value crashes
+      max_params: 32B                 # guard against oversized models on CPU
+      context_length: 32768           # CPU-only override — keep small (KV cache lives in RAM)
+      vllm:                           # engine: vllm only
+          image: vllm/vllm-openai-cpu:v0.28.0  # optional override (pinned by default; :latest intentionally not used)
+          kvcache_space: 16           # VLLM_CPU_KVCACHE_SPACE, GiB (default: 16)
+          omp_threads_bind: "0-31"    # VLLM_CPU_OMP_THREADS_BIND (default: all vCPUs)
 ```
 
-`llmrun doctor` checks GPU quota automatically before provisioning and offers the CPU fallback if quota is zero.
+Sizing on CPU: weights + `kvcache_space` + ~12 GB runtime overhead must fit in the instance's RAM. A 27B AWQ model needs ~50 GB total — `r8i.8xlarge` (256 GB) has plenty of headroom. `llmrun up` warns before provisioning when a model likely won't fit the instance's RAM.
+
+### CPU fallback instances
+
+Approximate us-east-1 on-demand prices (the cost preview in `llmrun up` uses these):
+
+| Instance | vCPU | RAM | ~\$/hr | Fits (AWQ 4-bit, 16 GB KV cache) |
+| --- | --- | --- | --- | --- |
+| `c7i.4xlarge` | 16 | 32 GB | $0.71 | 7B (tight) |
+| `m7i.4xlarge` | 16 | 64 GB | $0.81 | 7B–13B |
+| `r7i.4xlarge` | 16 | 128 GB | $1.06 | 13B–27B |
+| `r8i.8xlarge` | 32 | 256 GB | $2.22 | 27B with headroom, 70B |
+| `r8i.12xlarge` | 48 | 384 GB | $3.33 | 70B+ |
+
+Rule of thumb: ~0.7 GB of RAM per 1B params (4-bit weights) + 16 GB (KV cache) + ~12 GB (runtime).
 
 ## Running multiple models at once
 

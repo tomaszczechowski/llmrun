@@ -5,7 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2026-09-09
+
+### Fixed
+
+- npm package no longer ships the local terraform `.terraform` directory (AWS provider binary) — `npm i llmrun` download dropped from ~142 MB back to ~0.15 MB.
+
+## [1.0.5] - 2026-09-09
+
+### Changed
+
+- Docs site migrated from VitePress to Fumadocs (Next.js) with a refreshed look (hero/OG assets, icons); fixed images and links across the docs.
+- CPU vLLM default image pinned to `vllm/vllm-openai-cpu:v0.28.0` (the release verified live with the AWQ INT4 model). `:latest` is no longer the default — an untested future pull could silently change model behavior (especially for quantized models). Override with `cpu_fallback.vllm.image` only after testing the version.
+- Starter template `fast-7b` example: `context_length` raised to 16384 and `tool_call_parser: hermes` added.
+
+### Added
+
+- CPU vLLM fallback: `cpu_fallback` now supports `engine: vllm`, which provisions a CPU-only instance running the official `vllm/vllm-openai-cpu` image (CPU platform is auto-detected — no device flags), with `--ipc=host`, `VLLM_CPU_KVCACHE_SPACE`, and `VLLM_CPU_OMP_THREADS_BIND` tuning.
+- `cpu_fallback` options: `context_length` (CPU-only context override) and a `vllm` tuning block (`image`, `kvcache_space`, `omp_threads_bind`).
+- `r8i.8xlarge` instance spec (32 vCPU / 256 GB) and a pre-provisioning RAM-fit warning for CPU vLLM deployments.
+
+### Fixed
+
+- `engine: vllm` on a CPU instance no longer launches the GPU container with `--gpus all` / `--gpu-memory-utilization` — the user-data bootstrap now branches on engine + mode (GPU vLLM, CPU vLLM, Ollama).
+- `llmrun up` now aborts early when the instance type is not offered in the region (AZ pre-check) instead of burning ~4 minutes per AZ on a guaranteed "unsupported configuration" failure.
+
 ## [1.0.4] - 2026-09-03
+
+### Added
+
+- Kilo Code integration guide in the docs.
 
 ### Fixed
 

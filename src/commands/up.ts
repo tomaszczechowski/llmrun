@@ -2,11 +2,11 @@ import { select, confirm } from "@inquirer/prompts";
 import { randomUUID } from "node:crypto";
 import { loadCatalogContext, type GlobalFlags } from "../lib/context.js";
 import { resolveBasePort } from "../lib/config.js";
-import { idleTimeoutFor, type Model } from "../lib/catalog.js";
+import { idleTimeoutFor, type CpuVllm, type Model } from "../lib/catalog.js";
 import { LlmrunError, parseDuration, formatDuration } from "../lib/errors.js";
 import { assertPreflight } from "./doctor.js";
 import { checkGpuQuota } from "../lib/doctor.js";
-import { estimateCost, formatUsd, getInstanceSpec, checkVramFit } from "../lib/instances.js";
+import { estimateCost, formatUsd, getInstanceSpec, checkCpuRamFit, checkVramFit } from "../lib/instances.js";
 import { allocateLocalPort } from "../lib/ports.js";
 import {
     uniqueDeploymentName,
@@ -34,6 +34,10 @@ interface ResolvedTarget {
     instanceType: string;
     mode: "gpu" | "cpu";
     quantization?: string;
+    /** Per-target context length override (e.g. a smaller window on CPU). */
+    contextLength?: number;
+    /** CPU vLLM tuning (only set for the engine: vllm CPU fallback). */
+    cpuVllm?: CpuVllm;
 }
 
 /** Provision, serve, and connect a model chosen from the catalog. */
@@ -112,16 +116,20 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
 
     // Pre-check: find AZs that offer this instance type (capacity is not
     // guaranteed, but we can skip AZs that never have it and show the plan).
+    // An empty result means the type is not offered in this region — applying
+    // Terraform would just fail with "unsupported configuration", so bail out
+    // here instead of burning ~4 minutes per AZ.
     const azCheckSpin = spinner(`Checking availability zones for ${target.instanceType}`);
     const offeredAzs = await getInstanceTypeAzs(sel, target.instanceType);
 
     if (offeredAzs.length === 0) {
-        azCheckSpin.warn(`Could not determine AZ availability — will try the region default.`);
-    } else {
-        azCheckSpin.succeed(
-            `${target.instanceType} offered in: ${offeredAzs.join(", ")} — will try each if needed`
+        azCheckSpin.fail(`Could not determine AZ availability for ${target.instanceType}`);
+        throw new LlmrunError(
+            `${target.instanceType} is not offered in ${sel.region}.`,
+            "Choose another AWS region or instance type."
         );
     }
+    azCheckSpin.succeed(`${target.instanceType} offered in: ${offeredAzs.join(", ")} — will try each if needed`);
 
     const vars: tf.TerraformVars = {
         name,
@@ -134,10 +142,13 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
         remote_port: 8000,
         idle_timeout_seconds: idleSeconds,
         az_index: 0,
-        context_length: model.context_length,
+        context_length: target.contextLength ?? model.context_length,
         quantization: target.quantization,
         tool_call_parser: model.tool_call_parser,
         hf_token: hfToken,
+        vllm_cpu_image: target.cpuVllm?.image,
+        vllm_cpu_kvcache_space: target.cpuVllm?.kvcache_space,
+        vllm_cpu_omp_threads_bind: target.cpuVllm?.omp_threads_bind,
     };
     tf.prepareWorkspace(name, vars);
 
@@ -325,7 +336,9 @@ async function resolveTarget(sel: { region?: string; profile?: string }, model: 
     warn(
         `A CPU fallback is available: ${fb.instance_type} via ${fb.engine}` +
             (fb.max_params ? ` (models ≤ ${fb.max_params})` : "") +
-            ". This is MUCH slower — for functional dev/testing, not throughput."
+            (fb.engine === "vllm"
+                ? " — CPU vLLM is usable but far slower than GPU (expect a few tok/s)."
+                : " This is MUCH slower — for functional dev/testing, not throughput.")
     );
     const useCpu = await confirm({ message: `Run "${model.alias}" on CPU instead?`, default: false });
 
@@ -333,7 +346,14 @@ async function resolveTarget(sel: { region?: string; profile?: string }, model: 
         throw new LlmrunError("Aborted: GPU quota insufficient and CPU fallback declined.");
     }
 
-    return { engine: fb.engine, instanceType: fb.instance_type, mode: "cpu", quantization: fb.quantization };
+    return {
+        engine: fb.engine,
+        instanceType: fb.instance_type,
+        mode: "cpu",
+        quantization: fb.quantization,
+        contextLength: fb.context_length,
+        cpuVllm: fb.engine === "vllm" ? fb.vllm : undefined,
+    };
 }
 
 /** Show the cost estimate and ask for confirmation. Returns true to proceed. */
@@ -398,6 +418,39 @@ async function previewCostAndConfirm(model: Model, target: ResolvedTarget, autoY
                         dim(`Fix: set context_length: ${Math.min(maxCtx, 4096)} (or lower) in llmrun.yaml for this model.`)
                 );
             }
+
+            if (!autoYes) {
+                const proceed = await confirm({ message: "Provision anyway?", default: false });
+
+                if (!proceed) return false;
+            }
+        }
+    }
+
+    // CPU vLLM: warn if weights + KV cache + runtime overhead exceed the instance's RAM.
+    if (target.mode === "cpu" && target.engine === "vllm") {
+        const fit = checkCpuRamFit(
+            target.instanceType,
+            model.hf_repo,
+            target.quantization,
+            target.cpuVllm?.kvcache_space ?? 16
+        );
+
+        if (fit && !fit.fits) {
+            console.log("");
+            warn(
+                `~${fit.paramsB}B params need ~${fit.requiredGb.toFixed(0)} GB RAM (weights ~${fit.weightsGb.toFixed(
+                    0
+                )} GB + KV cache ${fit.kvcacheGb} GB + runtime) but ${target.instanceType} has ${fit.memoryGb} GB — ` +
+                    `the CPU vLLM container will OOM.`
+            );
+            console.log(
+                "  " +
+                    dim(
+                        "Fix: use a memory-optimized instance (e.g. r8i.8xlarge), lower cpu_fallback.vllm.kvcache_space, " +
+                            "or use a smaller/quantized model."
+                    )
+            );
 
             if (!autoYes) {
                 const proceed = await confirm({ message: "Provision anyway?", default: false });
