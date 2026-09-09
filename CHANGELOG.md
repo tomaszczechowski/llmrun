@@ -5,11 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.5] - 2026-09-09
 
 ### Changed
 
+- Docs site migrated from VitePress to Fumadocs (Next.js) with a refreshed look (hero/OG assets, icons); fixed images and links across the docs.
 - CPU vLLM default image pinned to `vllm/vllm-openai-cpu:v0.28.0` (the release verified live with the AWQ INT4 model). `:latest` is no longer the default — an untested future pull could silently change model behavior (especially for quantized models). Override with `cpu_fallback.vllm.image` only after testing the version.
+- Starter template `fast-7b` example: `context_length` raised to 16384 and `tool_call_parser: hermes` added.
 
 ### Added
 
@@ -20,8 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `engine: vllm` on a CPU instance no longer launches the GPU container with `--gpus all` / `--gpu-memory-utilization` — the user-data bootstrap now branches on engine + mode (GPU vLLM, CPU vLLM, Ollama).
+- `llmrun up` now aborts early when the instance type is not offered in the region (AZ pre-check) instead of burning ~4 minutes per AZ on a guaranteed "unsupported configuration" failure.
 
 ## [1.0.4] - 2026-09-03
+
+### Added
+
+- Kilo Code integration guide in the docs.
 
 ### Fixed
 
