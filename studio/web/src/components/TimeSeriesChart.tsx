@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import uPlot from "uplot";
+import "uplot/dist/uPlot.min.css";
 
 export interface ChartSeries {
     label: string;
@@ -12,21 +13,34 @@ interface Props {
     height?: number;
 }
 
+// uPlot has no default palette — series without a stroke draw an invisible line
+// (only a white point fallback), so assign one explicitly per series.
+const STROKE_COLORS = ["#38bdf8", "#34d399", "#fbbf24", "#a78bfa", "#f472b6"];
+
 /** Thin uPlot wrapper: one time column + N value columns. */
 export default function TimeSeriesChart({ times, series, height = 260 }: Props) {
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const hostRef = useRef<HTMLDivElement | null>(null);
     const chartRef = useRef<uPlot | null>(null);
     const seriesCount = series.length;
 
     useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || seriesCount === 0) return;
+        const host = hostRef.current;
+        if (!host || seriesCount === 0) return;
 
         const chart = new uPlot(
             {
+                width: host.clientWidth,
+                height,
+                ms: 1,
                 series: [
                     { label: "time" },
-                    ...series.map((s) => ({ label: s.label })),
+                    ...series.map((s, i) => ({
+                        label: s.label,
+                        stroke: STROKE_COLORS[i % STROKE_COLORS.length] ?? "#38bdf8",
+                        // size: 0 makes uPlot draw points with a negative radius and
+                        // throw from inside the effect — hide them via `show` instead.
+                        points: { show: false },
+                    })),
                 ],
                 axes: [
                     {
@@ -36,13 +50,22 @@ export default function TimeSeriesChart({ times, series, height = 260 }: Props) 
                     {},
                 ],
                 legend: { show: true },
-                padding: 8,
+                padding: [8, 8, 8, 8],
             },
             [times, ...series.map((s) => s.values)],
-            canvas
+            host
         );
         chartRef.current = chart;
+
+        // uPlot doesn't auto-resize — follow the container width.
+        const ro = new ResizeObserver(() => {
+            const w = host.clientWidth;
+            if (w > 0 && w !== chart.width) chart.setSize({ width: w, height });
+        });
+        ro.observe(host);
+
         return () => {
+            ro.disconnect();
             chart.destroy();
             chartRef.current = null;
         };
@@ -60,11 +83,5 @@ export default function TimeSeriesChart({ times, series, height = 260 }: Props) 
         }
     }, [times, series, seriesCount]);
 
-    return (
-        <canvas
-            ref={canvasRef}
-            style={{ width: "100%", height }}
-            className="block"
-        />
-    );
+    return <div ref={hostRef} className="block w-full" />;
 }
