@@ -9,7 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Idle auto-stop no longer powers off a restarted instance minutes after boot. The `last_active` timestamp persists on the root volume across stop/start, so the first monitor tick after boot compared it against the idle timeout and stopped the instance before the model finished loading (this made `llmrun start` report "Model did not become healthy in time"). The idle window now resets to the boot time. Requires re-provisioning (`llmrun down` + `llmrun up`) since the monitor is baked in at first boot.
+- SSM port-forward lifecycle: forwards are now managed by process group, because the session-manager-plugin child (which owns the local port and the SSM session) outlives the recorded `aws` parent. `llmrun start`/`connect` no longer report a tunnel as dead (or rekill a healthy one) when only the parent pid is gone, and `llmrun doctor` now finds and kills orphaned forwarders left behind by previous runs that otherwise hold a local port and answer connections with nothing.
+- `llmrun connect` now waits for model readiness after establishing the tunnel, so one command yields a queryable endpoint instead of a live tunnel to a still-loading model.
+- Studio: time-series chart axes now draw gridlines (`stroke`).
+
+### Changed
+
+- "Model did not become healthy in time" messages on `llmrun start`/`up` now note the forward is up (the model may simply still be loading) and point to `llmrun connect` as the re-wait path.
 
 ## [1.0.6] - 2026-09-09
 

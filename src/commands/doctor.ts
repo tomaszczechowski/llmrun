@@ -3,6 +3,8 @@ import { loadCatalog } from "../lib/catalog.js";
 import { checkTooling, checkAws, type CheckResult } from "../lib/doctor.js";
 import type { GlobalFlags } from "../lib/context.js";
 import { LlmrunError } from "../lib/errors.js";
+import { listDeployments } from "../lib/state.js";
+import { killOrphanedPortForwards } from "../lib/ssm.js";
 import { heading, symbols, dim } from "../lib/ui.js";
 
 function printResults(results: CheckResult[]): void {
@@ -37,6 +39,26 @@ export async function doctorCommand(flags: GlobalFlags): Promise<void> {
     heading("AWS");
     const aws = await checkAws(sel);
     printResults(aws);
+
+    heading("Port forwards");
+    // Orphans are session-manager-plugin forwarders whose process group is not a
+    // live deployment's recorded forward — leftovers that can hold a local port and
+    // answer connections with nothing. Kill them here.
+    const tracked = listDeployments()
+        .map((d) => d.forwardPid)
+        .filter((p): p is number => typeof p === "number");
+    const orphans = killOrphanedPortForwards(tracked);
+    printResults([
+        {
+            name: "stale port-forward processes",
+            status: "ok",
+            detail: orphans.length > 0 ? `${orphans.length} cleaned up` : "none found",
+            hint:
+                orphans.length > 0
+                    ? "These were SSM port-forwarders left behind by previous runs (the plugin outlives its `aws` parent)."
+                    : undefined,
+        },
+    ]);
 
     const all = [...tooling, ...aws];
     const failed = all.filter((r) => r.status === "fail").length;

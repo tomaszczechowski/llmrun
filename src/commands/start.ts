@@ -3,7 +3,7 @@ import { loadDeployment, updateDeployment } from "../lib/state.js";
 import { resolveDeploymentName } from "../lib/select.js";
 import { assertPreflight } from "./doctor.js";
 import { startInstance, waitForInstanceState, waitForSsmOnline } from "../lib/aws.js";
-import { establishPortForward, isProcessAlive } from "../lib/ssm.js";
+import { establishPortForward, isForwardAlive } from "../lib/ssm.js";
 import { flushInstanceUsage, reconcileLifecycle } from "../lib/history.js";
 import { waitForModelHealthy } from "../lib/health.js";
 import { LlmrunError } from "../lib/errors.js";
@@ -48,7 +48,9 @@ export async function startCommand(flags: GlobalFlags, nameArg: string | undefin
         // Best-effort — the next llmrun ls/stop/down reconciles.
     });
 
-    if (!isProcessAlive(state.forwardPid)) {
+    // Re-establish the forward only when no live one exists — the check must cover
+    // the plugin child outliving its recorded parent, or a healthy tunnel gets killed.
+    if (!isForwardAlive(state.forwardPid)) {
         const ssmSpin = spinner("Waiting for the SSM agent to register");
         const online = await waitForSsmOnline(sel, state.instanceId);
 
@@ -80,7 +82,8 @@ export async function startCommand(flags: GlobalFlags, nameArg: string | undefin
     if (healthy) healthSpin.succeed("Model is ready");
     else {
         healthSpin.fail("Model did not become healthy in time");
-        warn(`Check \`llmrun logs ${name}\`.`);
+        warn(`The port-forward is up, so the model may simply still be loading — check \`llmrun logs ${name}\`.`);
+        warn(`Once it's ready, \`llmrun connect ${name}\` re-waits for readiness.`);
     }
 
     heading(`"${name}" is up`);

@@ -44,10 +44,11 @@ export default function TimeSeriesChart({ times, series, height = 260 }: Props) 
                 ],
                 axes: [
                     {
+                        stroke: "#fff",
                         space: 52,
                         values: (u, vals) => vals.map((v) => new Date(v).toLocaleTimeString([], { hour12: false })),
                     },
-                    {},
+                    { stroke: "#fff" },
                 ],
                 legend: { show: true },
                 padding: [8, 8, 8, 8],

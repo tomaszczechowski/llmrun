@@ -268,7 +268,10 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
         healthSpin.succeed(`Model is ready`);
     } else {
         healthSpin.fail("Model did not become healthy in time");
-        warn(`The instance is up but the server isn't responding. Check \`llmrun logs ${name}\`.`);
+        warn(
+            `The tunnel is up but the server isn't responding — the model may simply still be loading. Check \`llmrun logs ${name}\`.`
+        );
+        warn(`Once it's ready, \`llmrun connect ${name}\` re-waits for readiness.`);
         warn(
             "A common cause is the model not fitting the GPU (vLLM CUDA out-of-memory, crash-looping). " +
                 "If so, use a larger instance or a quantized model."
@@ -415,7 +418,9 @@ async function previewCostAndConfirm(model: Model, target: ResolvedTarget, autoY
                 );
                 console.log(
                     "  " +
-                        dim(`Fix: set context_length: ${Math.min(maxCtx, 4096)} (or lower) in llmrun.yaml for this model.`)
+                        dim(
+                            `Fix: set context_length: ${Math.min(maxCtx, 4096)} (or lower) in llmrun.yaml for this model.`
+                        )
                 );
             }
 

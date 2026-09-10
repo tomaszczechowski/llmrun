@@ -1,7 +1,7 @@
 import type { GlobalFlags } from "../lib/context.js";
 import { listDeployments, loadDeployment, updateDeployment, type DeploymentState } from "../lib/state.js";
 import { resolveDeploymentName } from "../lib/select.js";
-import { stopPortForward, isProcessAlive } from "../lib/ssm.js";
+import { stopPortForward, isForwardAlive } from "../lib/ssm.js";
 import { success, info } from "../lib/ui.js";
 
 export interface DisconnectOptions {
@@ -9,7 +9,7 @@ export interface DisconnectOptions {
 }
 
 function disconnectOne(state: DeploymentState): void {
-    if (!isProcessAlive(state.forwardPid)) {
+    if (!isForwardAlive(state.forwardPid)) {
         info(`"${state.name}" was not connected.`);
         return;
     }
