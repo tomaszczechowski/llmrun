@@ -25,6 +25,8 @@ import { sshCommand } from "./commands/ssh.js";
 import { logsCommand } from "./commands/logs.js";
 import { configCommand } from "./commands/config.js";
 import { studioCommand } from "./commands/studio.js";
+import { costCommand } from "./commands/cost.js";
+import { historyCommand, historyExportCommand } from "./commands/history.js";
 
 const program = new Command();
 
@@ -61,7 +63,8 @@ program.configureHelp({
 
         if (desc) out.push(`${desc}\n`);
 
-        const cmds = helper.visibleCommands(cmd);
+        // The built-in `help` subcommand stays hidden to keep the grouping clean.
+        const cmds = helper.visibleCommands(cmd).filter((c) => c.name() !== "help");
         const groups = new Map<string, Command[]>();
 
         for (const c of cmds) {
@@ -71,11 +74,17 @@ program.configureHelp({
             groups.get(g)!.push(c);
         }
 
-        for (const groupName of ["Basic", "Advanced"]) {
+        const ordered = ["Basic", "Advanced"].filter((g) => groups.has(g));
+
+        for (const g of groups.keys()) {
+            if (g !== "Basic" && g !== "Advanced") ordered.push(g);
+        }
+
+        for (const groupName of ordered) {
             const list = groups.get(groupName);
 
             if (!list?.length) continue;
-            out.push(`${groupName} Commands:`);
+            out.push(groupName === "Commands" ? "Commands:" : `${groupName} Commands:`);
 
             for (const c of list) {
                 out.push(`${indent}${helper.subcommandTerm(c).padEnd(pad)}  ${helper.subcommandDescription(c)}`);
@@ -159,7 +168,7 @@ inGroup(
 inGroup(
     program
         .command("studio")
-        .description("Open the local dashboard (overview, live metrics, logs) at 127.0.0.1")
+        .description("Open the local dashboard (overview, metrics, logs, chat, history) at 127.0.0.1")
         .option("--port <port>", "port for the studio bridge (overrides studio_port)", (v) => parseInt(v, 10))
         .option("--no-browser", "don't open a browser automatically")
         .action(async (opts, cmd) => {
@@ -198,6 +207,33 @@ inGroup(
         }),
     "Basic"
 );
+
+inGroup(
+    program
+        .command("cost")
+        .description("Show compute + storage cost from the local usage ledger")
+        .option("--since <range>", 'time range to cover, e.g. "30d", "12h", "90m" (default: all time)')
+        .option("--model <alias>", "only this model alias")
+        .action(async (opts, cmd) => {
+            await costCommand(globals(cmd), { since: opts.since, model: opts.model });
+        }),
+    "Basic"
+);
+
+const history = program
+    .command("history")
+    .description("List every deployment recorded in the usage ledger (incl. destroyed)")
+    .option("--clear", "delete the entire usage ledger (the only deletion path)")
+    .action(async (opts, cmd) => {
+        await historyCommand(globals(cmd), { clear: opts.clear });
+    });
+history
+    .command("export <path>")
+    .description("Export the ledger to a single-file .zip (laptop-replacement escape hatch)")
+    .action(async (dest) => {
+        await historyExportCommand(dest);
+    });
+inGroup(history, "Basic");
 
 inGroup(
     program

@@ -56,6 +56,11 @@ export function keyValues(pairs: Array<[string, string]>): void {
     }
 }
 
+/** Thousands-separated integer for table cells and counters. */
+export function formatInt(value: number): string {
+    return Math.round(value).toLocaleString();
+}
+
 /** Render a simple table with a header row. */
 export function table(headers: string[], rows: string[][]): void {
     const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? "").length)));

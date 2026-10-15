@@ -96,8 +96,8 @@ export function estimateCost(instanceType: string): CostEstimate | undefined {
     };
 }
 
-export function formatUsd(value: number): string {
-    return `$${value.toFixed(2)}`;
+export function formatUsd(value: number, digits = 2): string {
+    return `$${value.toFixed(digits)}`;
 }
 
 /** VRAM per single GPU, in GB, keyed by the gpuType used in INSTANCE_SPECS. */

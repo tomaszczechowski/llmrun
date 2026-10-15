@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { DeploymentInfo } from "../api";
-import { fmtDuration, fmtInt, fmtUsd, stateBadgeClass } from "../util";
+import { fmtCountdown, fmtDuration, fmtInt, fmtUsd, stateBadgeClass } from "../util";
 
 interface Props {
     deployments: DeploymentInfo[];
@@ -67,13 +67,18 @@ function Card({ d, busy, onAction }: { d: DeploymentInfo; busy: string | null; o
             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
                 <KV k="Instance" v={`${d.instanceType} (${d.mode})`} />
                 <KV k="Region" v={d.region} />
-                <KV k="Rate" v={fmtUsd(d.usdPerHour) + "/hr"} />
+                <KV k="Rate" v={fmtUsd(d.usdPerHour) + "/hr" + (d.rateLive ? " · live" : "")} />
                 <KV k="Uptime" v={fmtDuration(d.uptimeSeconds)} />
             </div>
 
+            {d.state === "running" && <IdleCountdown d={d} />}
+
             <div className="flex items-center gap-2 text-sm">
                 <code className="truncate rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-300">{d.endpoint}</code>
-                <button onClick={() => void copyEndpoint()} className="shrink-0 text-xs text-zinc-400 hover:text-zinc-200">
+                <button
+                    onClick={() => void copyEndpoint()}
+                    className="shrink-0 text-xs text-zinc-400 hover:text-zinc-200"
+                >
                     {copied ? "copied" : "copy"}
                 </button>
                 {d.connected && (
@@ -83,7 +88,12 @@ function Card({ d, busy, onAction }: { d: DeploymentInfo; busy: string | null; o
 
             {d.session && (
                 <div className="rounded-md border border-zinc-800 bg-zinc-950 p-3">
-                    <div className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">Current session</div>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                            Current session
+                        </span>
+                        <EfficiencyHint d={d} />
+                    </div>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-3">
                         <KV k="Running" v={fmtDuration(d.session.runningSeconds)} />
                         <KV k="Cost so far" v={fmtUsd(d.session.computeCostUsd)} />
@@ -96,10 +106,68 @@ function Card({ d, busy, onAction }: { d: DeploymentInfo; busy: string | null; o
             )}
 
             <div className="text-xs text-zinc-500">
-                Lifetime ({d.totals.sessions} session{d.totals.sessions === 1 ? "" : "s"}): {fmtDuration(d.totals.runningSeconds)}
-                · {fmtUsd(d.totals.computeCostUsd)} · {fmtInt(d.totals.promptTokens)} in / {fmtInt(d.totals.generationTokens)} out
+                Lifetime ({d.totals.sessions} session{d.totals.sessions === 1 ? "" : "s"}):{" "}
+                {fmtDuration(d.totals.runningSeconds)} · {fmtUsd(d.totals.computeCostUsd)} ·{" "}
+                {fmtInt(d.totals.promptTokens)} in / {fmtInt(d.totals.generationTokens)} out
+                {d.totals.stoppedSeconds > 0 && (
+                    <>
+                        {" "}
+                        · stopped {fmtDuration(d.totals.stoppedSeconds)} ({fmtUsd(d.totals.storageCostUsd)} storage)
+                    </>
+                )}
             </div>
         </div>
+    );
+}
+
+/** Live auto-stop countdown, computed from the instance's last activity. */
+function IdleCountdown({ d }: { d: DeploymentInfo }) {
+    let secondsLeft = d.idle?.secondsLeft ?? null;
+
+    if (secondsLeft === null && d.idle?.lastActiveAt && d.idle.timeoutSeconds) {
+        secondsLeft = d.idle.timeoutSeconds - (Date.now() / 1000 - Date.parse(d.idle.lastActiveAt) / 1000);
+    }
+
+    if (secondsLeft === null) {
+        return (
+            <div className="text-xs text-zinc-500">
+                Auto-stop after <span className="text-zinc-300">{d.idleTimeout}</span> idle — reading the instance…
+            </div>
+        );
+    }
+    secondsLeft = Math.max(0, Math.round(secondsLeft));
+
+    return (
+        <div
+            className={`text-xs ${
+                secondsLeft <= 60 ? "text-red-400" : secondsLeft <= 300 ? "text-amber-400" : "text-zinc-500"
+            }`}
+        >
+            {secondsLeft <= 60 ? "Idle auto-stop imminent — " : "Idle auto-stop in "}
+            <span className="font-medium">{fmtCountdown(secondsLeft)}</span>
+            <span className="text-zinc-500"> (any request, incl. studio chat, resets the timer)</span>
+        </div>
+    );
+}
+
+/** Efficiency nudge: sessions that mostly burned money while idle. */
+function EfficiencyHint({ d }: { d: DeploymentInfo }) {
+    const s = d.session;
+
+    if (!s || s.runningSeconds < 1800) return null;
+    const eff = s.runningSeconds > 0 ? s.activeSeconds / s.runningSeconds : 0;
+
+    if (eff >= 0.3) {
+        return <span className="text-[11px] text-emerald-400">{Math.round(eff * 100)}% active</span>;
+    }
+
+    return (
+        <span
+            className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-400"
+            title="Mostly idle — a shorter idle_timeout (llmrun.yaml) would cut the waste."
+        >
+            {Math.round(eff * 100)}% active — mostly idle; consider idle_timeout &lt; {d.idleTimeout}
+        </span>
     );
 }
 

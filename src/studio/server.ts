@@ -7,6 +7,7 @@ import { listDeployments, loadDeployment, updateDeployment, type DeploymentState
 import { selectionForDeployment, type GlobalFlags } from "../lib/context.js";
 import {
     describeInstance,
+    runSsmCommand,
     startInstance,
     stopInstance,
     waitForInstanceState,
@@ -16,16 +17,32 @@ import {
 import { establishPortForward, isProcessAlive, spawnCommandStream, stopPortForward } from "../lib/ssm.js";
 import {
     computeSession,
-    eventsFor,
     flushInstanceUsage,
+    loadEvents,
     reconcileLifecycle,
     summarizeDeployment,
+    summarizeLedger,
     usdPerHourFor,
     windowsFor,
+    type LedgerEvent,
+    type RateResolver,
 } from "../lib/history.js";
 import { estimateCost } from "../lib/instances.js";
-import { LlmrunError } from "../lib/errors.js";
+import { getCachedRate, refreshRatesFor } from "../lib/pricing.js";
+import { LlmrunError, parseDuration, parseSinceIso } from "../lib/errors.js";
 import { extractVllmMetrics, parsePrometheus } from "./metrics.js";
+import { guardRequest, initSse, safeWriteSse, sendJson } from "./http.js";
+import {
+    MAX_CHAT_BODY_BYTES,
+    abortAllChats,
+    handleChat,
+    handleConversationTurns,
+    handleCreateConversation,
+    handleDeleteConversation,
+    handleListConversations,
+    handleModels,
+    isChatBusy,
+} from "./chat.js";
 
 /**
  * The studio bridge: a tiny 127.0.0.1-only HTTP server that lets the local
@@ -60,11 +77,22 @@ export interface TotalsInfo {
     sessions: number;
     runningSeconds: number;
     activeSeconds: number;
+    /** EBS-backed downtime between sessions (storage keeps billing). */
+    stoppedSeconds: number;
     promptTokens: number;
     generationTokens: number;
     requestSuccess: number;
     computeCostUsd: number;
+    storageCostUsd: number;
     usdPer1MOutTokens: number;
+}
+
+export interface IdleInfo {
+    /** Instance-side last-activity timestamp (null while unknown). */
+    lastActiveAt: string | null;
+    /** Seconds until the idle monitor powers the instance off (null while unknown). */
+    secondsLeft: number | null;
+    timeoutSeconds: number | null;
 }
 
 export interface DeploymentInfo {
@@ -82,6 +110,14 @@ export interface DeploymentInfo {
     state: string;
     uptimeSeconds: number | null;
     usdPerHour: number;
+    /** True while the live Pricing-API rate backs `usdPerHour`. */
+    rateLive: boolean;
+    /** Configured idle_timeout (e.g. "30m"). */
+    idleTimeout: string;
+    /** Last-known idle countdown (polled over SSM in the background). */
+    idle: IdleInfo | null;
+    /** A chat stream is already running for this deployment. */
+    chatBusy: boolean;
     /** The open running window (null when the instance is not running). */
     session: SessionInfo | null;
     /** All windows, open included. */
@@ -114,6 +150,24 @@ export interface MetricSample {
 const liveCache = new Map<string, { info: InstanceInfo | undefined; at: number }>();
 const spawnedChildren = new Set<ChildProcess>();
 
+// Idle countdown, read from the instance over SSM (SendCommand is expensive —
+// cache and refresh in the background, never blocking /api/deployments).
+const idleCache = new Map<string, { lastActiveAt: number | null; timeoutSeconds: number | null; at: number }>();
+const idleInflight = new Set<string>();
+const IDLE_TTL_MS = 45_000;
+
+const idleReadCommand =
+    'sudo bash -c \'echo "A=$(cat /var/lib/llmrun/last_active 2>/dev/null | head -n1)"; ' +
+    'echo "S=$(grep -m1 ^IDLE_SECONDS= /opt/llmrun/idle-monitor.sh 2>/dev/null | cut -d= -f2)"\'';
+
+// Live Pricing-API refresh pacing (fire-and-forget; cache lives in pricing.ts).
+let ratesRefreshAt = 0;
+const RATES_REFRESH_INTERVAL_MS = 6 * 3600_000;
+
+// Background usage flush pacing (keeps ledger fresh while only the UI is open).
+const flushInflight = new Set<string>();
+const FLUSH_MIN_INTERVAL_MS = 180_000;
+
 interface MetricState {
     samples: MetricSample[];
     timer: NodeJS.Timeout | null;
@@ -137,38 +191,14 @@ const MIME: Record<string, string> = {
 
 // --- Helpers --------------------------------------------------------------------
 
-function sendJson(res: ServerResponse, code: number, body: unknown): void {
-    if (res.writableEnded) return;
-    res.writeHead(code, { "content-type": "application/json", "cache-control": "no-store" });
-    res.end(JSON.stringify(body));
-}
-
-function safeWriteSse(res: ServerResponse, obj: unknown): void {
-    if (res.writableEnded) return;
-    try {
-        res.write(`data: ${JSON.stringify(obj)}\n\n`);
-    } catch {
-        // Client went away mid-write.
-    }
-}
-
-function initSse(res: ServerResponse): void {
-    res.writeHead(200, {
-        "content-type": "text/event-stream",
-        "cache-control": "no-cache, no-transform",
-        connection: "keep-alive",
-        "x-accel-buffering": "no",
-    });
-    res.write(": connected\n\n");
-}
-
-function readBody(req: IncomingMessage): Promise<string> {
+function readBody(req: IncomingMessage, maxBytes = 10_000): Promise<string> {
     return new Promise((resolve, reject) => {
         let data = "";
         req.setEncoding("utf8");
         req.on("data", (chunk: string) => {
             data += chunk;
-            if (data.length > 10_000) {
+
+            if (data.length > maxBytes) {
                 reject(new Error("Request body too large."));
                 req.destroy();
             }
@@ -186,30 +216,136 @@ async function liveInfo(d: DeploymentState, flags: GlobalFlags): Promise<Instanc
 
     const info = await describeInstance(selectionForDeployment(d, flags), d.instanceId).catch(() => undefined);
     liveCache.set(d.instanceId, { info, at: Date.now() });
+
     return info;
 }
 
-function buildDeploymentInfo(d: DeploymentState, live: InstanceInfo | undefined): DeploymentInfo {
+function parseEpochSeconds(s: string | undefined): number | null {
+    const n = Number(s?.trim());
+
+    return s && s.trim() && Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+/** Background SSM read of `last_active` + `IDLE_SECONDS` (45 s cache). */
+async function refreshIdle(d: DeploymentState, flags: GlobalFlags): Promise<void> {
+    if (!d.instanceId || idleInflight.has(d.name)) return;
+    const cached = idleCache.get(d.name);
+
+    if (cached && Date.now() - cached.at < IDLE_TTL_MS) return;
+    idleInflight.add(d.name);
+    try {
+        const out = await runSsmCommand(selectionForDeployment(d, flags), d.instanceId, [idleReadCommand], 30);
+
+        if (out !== undefined) {
+            let lastActiveAt: number | null = null;
+            let timeoutSeconds: number | null = null;
+
+            for (const line of out.split("\n")) {
+                if (line.startsWith("A=")) lastActiveAt = parseEpochSeconds(line.slice(2));
+                else if (line.startsWith("S=")) timeoutSeconds = parseEpochSeconds(line.slice(2));
+            }
+            idleCache.set(d.name, { lastActiveAt, timeoutSeconds, at: Date.now() });
+        }
+    } catch {
+        // SSM blip — the cached value (or null) stays.
+    } finally {
+        idleInflight.delete(d.name);
+    }
+}
+
+function idleFor(d: DeploymentState): IdleInfo | null {
+    const cached = idleCache.get(d.name);
+
+    if (!cached) return null;
+    let timeoutSeconds = cached.timeoutSeconds;
+
+    if (timeoutSeconds === null) {
+        try {
+            timeoutSeconds = parseDuration(d.idleTimeout);
+        } catch {
+            timeoutSeconds = null;
+        }
+    }
+    let secondsLeft: number | null = null;
+
+    if (cached.lastActiveAt !== null && timeoutSeconds !== null) {
+        secondsLeft = Math.max(0, Math.round(timeoutSeconds - (Date.now() / 1000 - cached.lastActiveAt)));
+    }
+
+    return {
+        lastActiveAt: cached.lastActiveAt !== null ? new Date(cached.lastActiveAt * 1000).toISOString() : null,
+        secondsLeft,
+        timeoutSeconds,
+    };
+}
+
+/** Background usage flush so ledger-driven totals stay fresh while the UI is open. */
+async function backgroundFlush(d: DeploymentState, flags: GlobalFlags): Promise<void> {
+    if (!d.instanceId || !d.deploymentId || flushInflight.has(d.name)) return;
+    const last = d.lastFlushAt ? Date.parse(d.lastFlushAt) : 0;
+
+    if (Number.isFinite(last) && Date.now() - last < FLUSH_MIN_INTERVAL_MS) return;
+    flushInflight.add(d.name);
+    try {
+        const sel = selectionForDeployment(d, flags);
+        await flushInstanceUsage(sel, d.instanceId, d.deploymentId);
+        updateDeployment(d.name, { lastFlushAt: new Date().toISOString() });
+    } catch {
+        // SSM blip — the buffer persists on the instance; the next pass retries.
+    } finally {
+        flushInflight.delete(d.name);
+    }
+}
+
+/** Fire-and-forget live rate refresh (at most once per 6 h per bridge). */
+function maybeRefreshRates(deployments: DeploymentState[], flags: GlobalFlags): void {
+    if (Date.now() - ratesRefreshAt < RATES_REFRESH_INTERVAL_MS) return;
+    ratesRefreshAt = Date.now();
+    void refreshRatesFor(
+        { profile: flags.profile },
+        deployments.map((d) => ({ region: d.region, instanceType: d.instanceType }))
+    );
+}
+
+/** Display rate: live cached → up-time snapshot → bundled table. */
+function resolveRate(d: DeploymentState, snapshot: number): { rate: number; live: boolean } {
+    const live = getCachedRate(d.region, d.instanceType);
+
+    if (live !== undefined) return { rate: live, live: true };
+    if (snapshot > 0) return { rate: snapshot, live: false };
+
+    return { rate: estimateCost(d.instanceType)?.usdPerHour ?? 0, live: false };
+}
+
+function buildDeploymentInfo(
+    d: DeploymentState,
+    live: InstanceInfo | undefined,
+    eventsById: Map<string, LedgerEvent[]>
+): DeploymentInfo {
     const id = d.deploymentId ?? null;
+    const events = (id ? eventsById.get(id) : undefined) ?? [];
+    const snapshotRate = id ? usdPerHourFor(id, events) : 0;
+    const { rate, live: rateLive } = resolveRate(d, snapshotRate);
     let session: SessionInfo | null = null;
     let totals: TotalsInfo = {
         sessions: 0,
         runningSeconds: 0,
         activeSeconds: 0,
+        stoppedSeconds: 0,
         promptTokens: 0,
         generationTokens: 0,
         requestSuccess: 0,
         computeCostUsd: 0,
+        storageCostUsd: 0,
         usdPer1MOutTokens: 0,
     };
 
     if (id) {
-        const events = eventsFor(id);
         const windows = windowsFor(id, events);
         const last = windows[windows.length - 1];
 
         if (last && last.stoppedTs === null) {
-            const t = computeSession(id, last, undefined, events);
+            const t = computeSession(id, last, undefined, events, rate);
             session = {
                 startedTs: t.startedTs,
                 runningSeconds: t.runningSeconds,
@@ -221,7 +357,7 @@ function buildDeploymentInfo(d: DeploymentState, live: InstanceInfo | undefined)
                 usdPer1MOutTokens: t.usdPer1MOutTokens,
             };
         }
-        totals = summarizeDeployment(id, events);
+        totals = summarizeDeployment(id, events, { rateUsdPerHour: rate });
     }
 
     const state = !d.instanceId ? (d.provisioningAt ? "provisioning" : "no-instance") : (live?.state ?? "unknown");
@@ -229,7 +365,6 @@ function buildDeploymentInfo(d: DeploymentState, live: InstanceInfo | undefined)
         d.instanceId && live?.state === "running" && live.startTime
             ? Math.max(0, Math.round((Date.now() - Date.parse(live.startTime)) / 1000))
             : null;
-    const upRate = id ? usdPerHourFor(id) : 0;
 
     return {
         name: d.name,
@@ -245,7 +380,11 @@ function buildDeploymentInfo(d: DeploymentState, live: InstanceInfo | undefined)
         connected: isProcessAlive(d.forwardPid),
         state,
         uptimeSeconds,
-        usdPerHour: upRate > 0 ? upRate : (estimateCost(d.instanceType)?.usdPerHour ?? 0),
+        usdPerHour: rate,
+        rateLive,
+        idleTimeout: d.idleTimeout,
+        idle: idleFor(d),
+        chatBusy: isChatBusy(d.name),
         session,
         totals,
     };
@@ -253,10 +392,61 @@ function buildDeploymentInfo(d: DeploymentState, live: InstanceInfo | undefined)
 
 // --- /api/deployments -----------------------------------------------------------
 
+const rateResolver: RateResolver = (region, instanceType, snapshot) => getCachedRate(region, instanceType) ?? snapshot;
+
 async function handleListDeployments(res: ServerResponse, flags: GlobalFlags): Promise<void> {
     const deployments = listDeployments();
     const infos = await Promise.all(deployments.map((d) => liveInfo(d, flags)));
-    sendJson(res, 200, deployments.map((d, i) => buildDeploymentInfo(d, infos[i]!)));
+
+    // Background maintenance (never blocks the response): idle countdown reads,
+    // ledger flushes for running deployments, and periodic live-rate refreshes.
+    deployments.forEach((d, i) => {
+        if (infos[i]?.state === "running" && d.instanceId) {
+            void refreshIdle(d, flags);
+            void backgroundFlush(d, flags);
+        }
+    });
+    maybeRefreshRates(deployments, flags);
+
+    // One ledger read for the whole response: this endpoint is polled every 5s,
+    // and eventsFor() re-reads and re-validates the entire file on each call.
+    const eventsById = new Map<string, LedgerEvent[]>();
+
+    for (const e of loadEvents()) {
+        const bucket = eventsById.get(e.id);
+
+        if (bucket) bucket.push(e);
+        else eventsById.set(e.id, [e]);
+    }
+
+    sendJson(
+        res,
+        200,
+        deployments.map((d, i) => buildDeploymentInfo(d, infos[i]!, eventsById))
+    );
+}
+
+// --- /api/history ---------------------------------------------------------------
+
+function handleHistory(url: URL, res: ServerResponse): void {
+    let sinceIso: string | undefined;
+    try {
+        sinceIso = parseSinceIso(url.searchParams.get("since") ?? undefined);
+    } catch (err) {
+        sendJson(res, 400, { ok: false, error: (err as Error).message });
+
+        return;
+    }
+    const agg = summarizeLedger(
+        loadEvents(),
+        {
+            sinceIso,
+            model: url.searchParams.get("model") ?? undefined,
+            id: url.searchParams.get("id") ?? undefined,
+        },
+        rateResolver
+    );
+    sendJson(res, 200, agg);
 }
 
 // --- /api/deployments/:name/metrics (SSE) ---------------------------------------
@@ -535,16 +725,25 @@ function serveStatic(res: ServerResponse, urlPath: string): void {
 // --- Request routing ---------------------------------------------------------------
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse, flags: GlobalFlags): Promise<void> {
+    if (!guardRequest(req, res)) return;
+
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
     const p = url.pathname;
 
     try {
         if (p === "/api/deployments" && req.method === "GET") {
             await handleListDeployments(res, flags);
+
             return;
         }
 
-        const m = p.match(/^\/api\/deployments\/([^/]+)\/(metrics|logs|actions)$/);
+        if (p === "/api/history" && req.method === "GET") {
+            handleHistory(url, res);
+
+            return;
+        }
+
+        const m = p.match(/^\/api\/deployments\/([^/]+)\/(metrics|logs|actions|chat|models|conversations)$/);
 
         if (m) {
             const name = decodeURIComponent(m[1]!);
@@ -555,30 +754,81 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse, flags: G
                     loadDeployment(name);
                 } catch {
                     sendJson(res, 404, { ok: false, error: `No deployment named "${name}".` });
+
                     return;
                 }
                 metricsSubscribe(name, res);
+
                 return;
             }
 
             if (kind === "logs" && req.method === "GET") {
                 streamLogs(name, res, flags);
+
                 return;
             }
 
             if (kind === "actions" && req.method === "POST") {
                 const body = await readBody(req);
                 await handleAction(name, body, flags, res);
+
+                return;
+            }
+
+            if (kind === "models" && req.method === "GET") {
+                await handleModels(name, res);
+
+                return;
+            }
+
+            if (kind === "chat" && req.method === "POST") {
+                const raw = await readBody(req, MAX_CHAT_BODY_BYTES).catch(() => null);
+
+                await handleChat(name, raw, res, flags, (dd, ff) => liveInfo(dd, ff));
+
+                return;
+            }
+
+            if (kind === "conversations") {
+                if (req.method === "GET") {
+                    handleListConversations(name, res);
+
+                    return;
+                }
+                if (req.method === "POST") {
+                    await readBody(req).catch(() => "");
+                    handleCreateConversation(res);
+
+                    return;
+                }
+            }
+        }
+
+        const mconv = p.match(/^\/api\/deployments\/([^/]+)\/conversations\/([^/]+)$/);
+
+        if (mconv) {
+            const name = decodeURIComponent(mconv[1]!);
+            const cid = decodeURIComponent(mconv[2]!);
+
+            if (req.method === "GET") {
+                handleConversationTurns(name, cid, res);
+
+                return;
+            }
+            if (req.method === "DELETE") {
+                handleDeleteConversation(name, cid, res);
+
                 return;
             }
         }
 
         if (req.method === "GET" || req.method === "HEAD") {
             serveStatic(res, p);
+
             return;
         }
 
-        res.writeHead(405, { "allow": "GET, POST" }).end();
+        res.writeHead(405, { allow: "GET, POST, DELETE" }).end();
     } catch (err) {
         if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: false, error: (err as Error).message }));
@@ -625,6 +875,7 @@ export async function startStudioServer(opts: StudioServerOptions): Promise<Stud
         port: opts.port,
         close(): Promise<void> {
             return new Promise((resolve) => {
+                abortAllChats();
                 for (const c of spawnedChildren) {
                     try {
                         c.kill("SIGTERM");

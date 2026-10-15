@@ -11,6 +11,8 @@ interface Props {
     times: number[];
     series: ChartSeries[];
     height?: number;
+    /** "clock" (HH:MM:SS, default) for live metrics; "date" for month/day buckets. */
+    timeMode?: "clock" | "date";
 }
 
 // uPlot has no default palette — series without a stroke draw an invisible line
@@ -18,7 +20,7 @@ interface Props {
 const STROKE_COLORS = ["#38bdf8", "#34d399", "#fbbf24", "#a78bfa", "#f472b6"];
 
 /** Thin uPlot wrapper: one time column + N value columns. */
-export default function TimeSeriesChart({ times, series, height = 260 }: Props) {
+export default function TimeSeriesChart({ times, series, height = 260, timeMode = "clock" }: Props) {
     const hostRef = useRef<HTMLDivElement | null>(null);
     const chartRef = useRef<uPlot | null>(null);
     const seriesCount = series.length;
@@ -46,7 +48,14 @@ export default function TimeSeriesChart({ times, series, height = 260 }: Props) 
                     {
                         stroke: "#fff",
                         space: 52,
-                        values: (u, vals) => vals.map((v) => new Date(v).toLocaleTimeString([], { hour12: false })),
+                        values: (u, vals) =>
+                            vals.map((v) => {
+                                const d = new Date(v as any);
+
+                                return timeMode === "date"
+                                    ? d.toLocaleDateString([], { year: "2-digit", month: "short" })
+                                    : d.toLocaleTimeString([], { hour12: false });
+                            }),
                     },
                     { stroke: "#fff" },
                 ],
@@ -72,7 +81,7 @@ export default function TimeSeriesChart({ times, series, height = 260 }: Props) 
         };
         // Recreate only when the shape changes (series count / times length on mount).
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [seriesCount]);
+    }, [seriesCount, timeMode]);
 
     useEffect(() => {
         const chart = chartRef.current;

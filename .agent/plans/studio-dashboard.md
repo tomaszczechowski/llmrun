@@ -8,7 +8,7 @@ against the served model, and safe config updates — backed by a **durable, loc
 ledger** that survives `llmrun down`, so total stats exist regardless of whether a deployment is
 still on the list.
 
-Status: **proposed** — design doc, no code.
+Status: **implementing** — Phase 1 (ledger + studio core) and Phase 2 (chat + cost depth + history) are built; Phase 3 (config control + GPU telemetry) pending.
 
 ## Locked decisions
 

@@ -7,5 +7,6 @@ pnpm-lock.yaml
 .claude
 plan.md
 docs/.next
+docs/.vitepress
 docs/out
 docs/next-env.d.ts

@@ -9,6 +9,19 @@ export const metadata: Metadata = {
     description: 'Work locally with deployed open-models in your cloud.',
 };
 
+const studioShots = [
+    {
+        title: 'Metrics',
+        src: '/screenshots/studio-metrics.png',
+        alt: 'llmrun studio Metrics tab showing live vLLM throughput, latency, and cost charts',
+    },
+    {
+        title: 'Chat',
+        src: '/screenshots/studio-chat.png',
+        alt: 'llmrun studio Chat tab with a streamed conversation against the served model',
+    },
+];
+
 const features = [
     {
         icon: `${basePath}/icons/no-gpu.svg`,
@@ -96,6 +109,45 @@ export default function Home() {
                     </a>
                 </div>
                 <Image src={basePath + "/hero-terminal.svg"} alt="llmrun terminal session" width={760} height={460} className="mt-14 w-full max-w-3xl" />
+            </section>
+
+            <section className="relative mx-auto w-full max-w-6xl px-6 pb-20">
+                <div className="mx-auto max-w-2xl text-center">
+                    <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+                        <span className="bg-gradient-to-r from-[#a5b4fc] via-[#818cf8] to-[#6366f1] bg-clip-text text-transparent">
+                            llmrun studio
+                        </span>
+                    </h2>
+                    <p className="mt-4 text-base leading-relaxed text-white/60">
+                        A local, Docker-Desktop-style dashboard for what you&rsquo;re running: live metrics straight from vLLM, a
+                        ChatGPT-style chat against the served model, and cost history that survives{' '}
+                        <code className="rounded bg-white/10 px-1.5 py-0.5 text-[0.9em]">llmrun down</code>. Binds to{' '}
+                        <code className="rounded bg-white/10 px-1.5 py-0.5 text-[0.9em]">127.0.0.1</code> only.
+                    </p>
+                </div>
+
+                <div className="mt-10 grid gap-6 lg:grid-cols-2">
+                    {studioShots.map((shot) => (
+                        <div
+                            key={shot.title}
+                            className="overflow-hidden rounded-xl border border-indigo-500/25 bg-white/[0.03] shadow-[0_10px_40px_rgba(0,0,0,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-500/50"
+                        >
+                            <div className="flex items-center gap-1.5 border-b border-white/10 bg-white/[0.02] px-3 py-2.5">
+                                <span className="size-2.5 rounded-full bg-white/15" />
+                                <span className="size-2.5 rounded-full bg-white/15" />
+                                <span className="size-2.5 rounded-full bg-white/15" />
+                                <span className="ml-2 text-xs text-white/40">{shot.title}</span>
+                            </div>
+                            <Image src={basePath + shot.src} alt={shot.alt} width={1440} height={900} className="w-full" />
+                        </div>
+                    ))}
+                </div>
+
+                <p className="mt-6 text-center text-sm text-white/50">
+                    <Link href="/docs/guide/studio" className="font-semibold text-indigo-300 transition-colors hover:text-indigo-200">
+                        Take the full tour →
+                    </Link>
+                </p>
             </section>
 
             <section className="relative mx-auto w-full max-w-6xl px-6 pb-20">

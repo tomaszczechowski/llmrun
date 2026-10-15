@@ -7,6 +7,7 @@ import { LlmrunError, parseDuration, formatDuration } from "../lib/errors.js";
 import { assertPreflight } from "./doctor.js";
 import { checkGpuQuota } from "../lib/doctor.js";
 import { estimateCost, formatUsd, getInstanceSpec, checkCpuRamFit, checkVramFit } from "../lib/instances.js";
+import { STORAGE_USD_PER_GB_MONTH, getLiveRate } from "../lib/pricing.js";
 import { allocateLocalPort } from "../lib/ports.js";
 import {
     uniqueDeploymentName,
@@ -27,6 +28,22 @@ export interface UpOptions {
     name?: string;
     yes?: boolean;
     port?: number;
+}
+
+/** Best-effort live rate (Pricing API, disk-cached); never blocks for long. */
+async function quietLiveRate(
+    sel: { region?: string; profile?: string },
+    region: string,
+    instanceType: string,
+    timeoutMs = 10_000
+): Promise<number | undefined> {
+    return Promise.race([
+        getLiveRate(sel, region, instanceType).catch(() => undefined),
+        new Promise<undefined>((resolve) => {
+            const t = setTimeout(() => resolve(undefined), timeoutMs);
+            t.unref();
+        }),
+    ]);
 }
 
 interface ResolvedTarget {
@@ -66,8 +83,17 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
     // Resolve the instance/engine to use, applying the CPU fallback if GPU quota is short.
     const target = await resolveTarget(sel, model);
 
+    // Live on-demand rate when the Pricing API is reachable; bundled table otherwise.
+    const rateSpin = spinner(`Checking live pricing for ${target.instanceType}`);
+    const liveRate = sel.region ? await quietLiveRate(sel, sel.region, target.instanceType) : undefined;
+    const tableRate = estimateCost(target.instanceType)?.usdPerHour ?? 0;
+
+    if (liveRate !== undefined) rateSpin.succeed(`Live rate: ${formatUsd(liveRate)}/hr`);
+    else rateSpin.succeed(`Pricing API unavailable — using the bundled estimate: ${formatUsd(tableRate)}/hr`);
+    const rate = { usdPerHour: liveRate ?? tableRate, live: liveRate !== undefined };
+
     // Cost preview + explicit approval.
-    const approved = await previewCostAndConfirm(model, target, opts.yes ?? false);
+    const approved = await previewCostAndConfirm(model, target, opts.yes ?? false, rate);
 
     if (!approved) {
         info("Aborted. Nothing was provisioned.");
@@ -228,7 +254,7 @@ export async function upCommand(flags: GlobalFlags, opts: UpOptions): Promise<vo
         contextLength: model.context_length,
         quantization: target.quantization,
         toolCallParser: model.tool_call_parser,
-        usdPerHour: estimateCost(target.instanceType)?.usdPerHour ?? 0,
+        usdPerHour: rate.usdPerHour,
     });
 
     const runSpin = spinner("Waiting for the instance to reach 'running'");
@@ -360,9 +386,13 @@ async function resolveTarget(sel: { region?: string; profile?: string }, model: 
 }
 
 /** Show the cost estimate and ask for confirmation. Returns true to proceed. */
-async function previewCostAndConfirm(model: Model, target: ResolvedTarget, autoYes: boolean): Promise<boolean> {
+async function previewCostAndConfirm(
+    model: Model,
+    target: ResolvedTarget,
+    autoYes: boolean,
+    rate: { usdPerHour: number; live: boolean }
+): Promise<boolean> {
     const spec = getInstanceSpec(target.instanceType);
-    const cost = estimateCost(target.instanceType);
 
     heading("Cost preview");
     keyValues([
@@ -373,9 +403,16 @@ async function previewCostAndConfirm(model: Model, target: ResolvedTarget, autoY
         ],
         [
             "Est. cost",
-            cost ? `~${formatUsd(cost.usdPerHour)}/hr  (~${formatUsd(cost.usdPerDay)}/day if left running)` : "unknown",
+            rate.usdPerHour > 0
+                ? `~${formatUsd(rate.usdPerHour)}/hr  (~${formatUsd(rate.usdPerHour * 24)}/day if left running) ${dim(
+                      rate.live ? "(live pricing)" : "(bundled estimate)"
+                  )}`
+                : "unknown",
         ],
-        ["Disk", `${model.disk_gb} GB`],
+        [
+            "Disk",
+            `${model.disk_gb} GB ${dim(`(+~$${(model.disk_gb * STORAGE_USD_PER_GB_MONTH).toFixed(2)}/mo storage while stopped)`)} — EBS persists across stop/start`,
+        ],
     ]);
     console.log(
         "  " +

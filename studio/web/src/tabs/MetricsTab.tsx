@@ -44,8 +44,8 @@ export default function MetricsTab({ deployment }: Props) {
     if (deployment.engine !== "vllm") {
         return (
             <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-10 text-center text-zinc-400">
-                Live metrics are unavailable for CPU (Ollama) deployments. {" "}
-                Token and cost usage is still tracked in the ledger via the Overview tab.
+                Live metrics are unavailable for CPU (Ollama) deployments. Token and cost usage is still tracked in the
+                ledger via the Overview tab.
             </div>
         );
     }
@@ -121,11 +121,21 @@ export default function MetricsTab({ deployment }: Props) {
                                 <KV
                                     k="Efficiency"
                                     v={
-                                        Math.round((deployment.session.activeSeconds / deployment.session.runningSeconds) * 100) +
-                                        " % active"
+                                        Math.round(
+                                            (deployment.session.activeSeconds / deployment.session.runningSeconds) * 100
+                                        ) + " % active"
                                     }
                                 />
                             )}
+                            <KV k="Stopped storage (lifetime)" v={fmtUsd(deployment.totals.storageCostUsd)} />
+                            {deployment.session.runningSeconds > 3600 &&
+                                deployment.session.runningSeconds > 0 &&
+                                deployment.session.activeSeconds / deployment.session.runningSeconds < 0.3 && (
+                                    <div className="col-span-2 rounded-md bg-amber-500/10 px-2 py-1.5 text-xs text-amber-400">
+                                        Mostly idle — a shorter <code>idle_timeout</code> (currently{" "}
+                                        {deployment.idleTimeout}) would cut wasted spend.
+                                    </div>
+                                )}
                         </div>
                     ) : (
                         <div className="text-sm text-zinc-500">No open session recorded yet.</div>
