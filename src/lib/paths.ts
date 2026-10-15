@@ -56,3 +56,8 @@ export function globalConfigPath(): string {
 export function historyFile(): string {
     return path.join(homeDir(), "history.jsonl");
 }
+
+/** Cache of live on-demand rates fetched from the AWS Pricing API. */
+export function pricesFile(): string {
+    return path.join(homeDir(), "prices.json");
+}

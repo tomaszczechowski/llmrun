@@ -100,6 +100,22 @@ llmrun start            # restart and re-forward
 llmrun down             # destroy everything (terraform destroy)
 ```
 
+## Dashboard, cost, and history
+
+```bash
+llmrun studio           # local web dashboard at 127.0.0.1: live metrics, logs,
+                        # ChatGPT-style chat against the served model, and full cost history
+llmrun cost --since 30d # compute + stopped-storage cost from the local usage ledger
+llmrun history          # every deployment ever recorded (including destroyed ones)
+llmrun history export backup.zip  # single-file backup of the ledger
+```
+
+See the [Studio guide](/docs/guide/studio) for a tour of the dashboard, with screenshots.
+
+All usage is tracked in a durable, local-only ledger (`~/.llmrun/history.jsonl`) that survives
+`llmrun down` — so totals and saved studio chat conversations exist regardless of whether a
+deployment is still around. `llmrun history --clear` is the only deletion path.
+
 ## AWS setup
 
 llmrun needs an AWS account with:

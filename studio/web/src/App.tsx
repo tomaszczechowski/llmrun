@@ -3,13 +3,17 @@ import { fetchDeployments, sendAction, type DeploymentInfo } from "./api";
 import OverviewTab from "./tabs/OverviewTab";
 import MetricsTab from "./tabs/MetricsTab";
 import LogsTab from "./tabs/LogsTab";
+import ChatTab from "./tabs/ChatTab";
+import HistoryTab from "./tabs/HistoryTab";
 
-type Tab = "overview" | "metrics" | "logs";
+type Tab = "overview" | "metrics" | "logs" | "chat" | "history";
 
 const TABS: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "metrics", label: "Metrics" },
     { id: "logs", label: "Logs" },
+    { id: "chat", label: "Chat" },
+    { id: "history", label: "History" },
 ];
 
 export default function App() {
@@ -83,7 +87,7 @@ export default function App() {
                         </button>
                     ))}
                 </nav>
-                {(tab === "metrics" || tab === "logs") && (
+                {(tab === "metrics" || tab === "logs" || tab === "chat") && (
                     <select
                         value={selected ?? ""}
                         onChange={(e) => setSelected(e.target.value)}
@@ -111,6 +115,8 @@ export default function App() {
                 )}
                 {tab === "metrics" && <MetricsTab deployment={selectedDeployment} />}
                 {tab === "logs" && <LogsTab deployment={selectedDeployment} />}
+                {tab === "chat" && <ChatTab deployment={selectedDeployment} />}
+                {tab === "history" && <HistoryTab />}
             </main>
         </div>
     );
